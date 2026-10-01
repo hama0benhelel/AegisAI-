@@ -23,6 +23,7 @@ services:
   backend:
     build: ./backend
     environment:
+      JWT_SECRET: ${JWT_SECRET:?Missing JWT_SECRET}
       APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Missing APP_DB_PASSWORD}
     ports:
       - "127.0.0.1:8000:8000"

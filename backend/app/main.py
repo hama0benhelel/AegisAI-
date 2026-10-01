@@ -29,3 +29,17 @@ def ready():
         raise HTTPException(503, "Database unavailable") from None
 
     return {"status": "ok", "database": "connected"}
+
+
+from fastapi.responses import JSONResponse
+from app.auth import router as auth_router
+
+app.include_router(auth_router)
+
+
+@app.exception_handler(psycopg.Error)
+async def database_error_handler(request, exc):
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "Database unavailable"},
+    )
