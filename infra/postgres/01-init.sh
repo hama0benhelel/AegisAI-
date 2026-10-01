@@ -1,0 +1,17 @@
+#!/bin/sh
+set -eu
+
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<'SQL'
+\getenv app_password APP_DB_PASSWORD
+
+CREATE ROLE aegisai_app
+    LOGIN PASSWORD :'app_password'
+    NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+
+REVOKE ALL ON DATABASE aegisai FROM PUBLIC;
+GRANT CONNECT ON DATABASE aegisai TO aegisai_app;
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+
+CREATE SCHEMA bws_ai;
+GRANT USAGE ON SCHEMA bws_ai TO aegisai_app;
+SQL

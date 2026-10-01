@@ -1,0 +1,31 @@
+import os
+
+import psycopg
+from fastapi import FastAPI, HTTPException
+
+app = FastAPI(title="AegisAI", version="0.1.0")
+
+
+@app.get("/health/live")
+def live():
+    return {"status": "ok", "service": "aegisai-api"}
+
+
+@app.get("/health/ready")
+def ready():
+    try:
+        with psycopg.connect(
+            host="db",
+            dbname="aegisai",
+            user="aegisai_app",
+            password=os.environ["APP_DB_PASSWORD"],
+            connect_timeout=3,
+            options="-c statement_timeout=3000",
+        ) as conn:
+            result = conn.execute("SELECT 1").fetchone()
+            if result != (1,):
+                raise HTTPException(503, "Database unavailable")
+    except psycopg.Error:
+        raise HTTPException(503, "Database unavailable") from None
+
+    return {"status": "ok", "database": "connected"}
