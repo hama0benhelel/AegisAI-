@@ -1,3 +1,4 @@
+from app.rate_limit import limit_login
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -6,7 +7,7 @@ from uuid import UUID
 import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -41,8 +42,8 @@ def unauthorized():
     )
 
 
-@router.post("/auth/login", tags=["Authentication"])
-def login(body: LoginInput, response: Response):
+@router.post("/auth/login", tags=["Authentication"], dependencies=[Depends(limit_login)])
+def login(body: LoginInput, response: Response, request: Request):
     email = body.email.strip().lower()
 
     with connect() as conn:
@@ -61,6 +62,11 @@ def login(body: LoginInput, response: Response):
 
     if user is None or not user["is_active"]:
         raise unauthorized()
+
+    request.state.audit_principal = {
+        "user_id": str(user["id"]),
+        "tenant_id": str(user["tenant_id"]),
+    }
 
     now = datetime.now(timezone.utc)
     token = jwt.encode(
@@ -87,6 +93,7 @@ def login(body: LoginInput, response: Response):
 
 
 def current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
 ):
     if credentials is None or credentials.scheme.lower() != "bearer":
@@ -123,6 +130,11 @@ def current_user(
 
     if user is None or not user["is_active"]:
         raise unauthorized()
+
+    request.state.audit_principal = {
+        "user_id": str(user["id"]),
+        "tenant_id": str(user["tenant_id"]),
+    }
 
     # The role is read from the DB, not trusted from a client field.
     return user
