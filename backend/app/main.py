@@ -43,3 +43,11 @@ async def database_error_handler(request, exc):
         status_code=503,
         content={"detail": "Database unavailable"},
     )
+
+
+from app.audit import audit_middleware
+app.middleware("http")(audit_middleware)
+
+
+from app.security_routes import router as security_router
+app.include_router(security_router)
