@@ -1,0 +1,15 @@
+BEGIN;
+
+INSERT INTO bws_ai.tenants (id, name) VALUES
+('11111111-1111-4111-8111-111111111111', 'Client A'),
+('22222222-2222-4222-8222-222222222222', 'Client B');
+
+INSERT INTO bws_ai.readings
+    (tenant_id, sensor_id, resource, value, unit)
+VALUES
+('11111111-1111-4111-8111-111111111111', 'A-WATER-01', 'water', 12.5, 'm3'),
+('11111111-1111-4111-8111-111111111111', 'A-ENERGY-01', 'energy', 85, 'kWh'),
+('22222222-2222-4222-8222-222222222222', 'B-WATER-01', 'water', 33, 'm3'),
+('22222222-2222-4222-8222-222222222222', 'B-ENERGY-01', 'energy', 160, 'kWh');
+
+COMMIT;
