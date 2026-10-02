@@ -55,3 +55,7 @@ app.include_router(security_router)
 
 from app.workflow import router as workflow_router
 app.include_router(workflow_router)
+
+
+from app.agents import router as agents_router
+app.include_router(agents_router)
