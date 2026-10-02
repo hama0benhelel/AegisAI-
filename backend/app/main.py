@@ -51,3 +51,7 @@ app.middleware("http")(audit_middleware)
 
 from app.security_routes import router as security_router
 app.include_router(security_router)
+
+
+from app.workflow import router as workflow_router
+app.include_router(workflow_router)
