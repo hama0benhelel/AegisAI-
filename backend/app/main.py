@@ -63,3 +63,7 @@ app.include_router(agents_router)
 
 from app.analysis_proposals import router as analysis_proposals_router
 app.include_router(analysis_proposals_router)
+
+
+from app.chat import router as chat_router
+app.include_router(chat_router)
