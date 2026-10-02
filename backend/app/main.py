@@ -59,3 +59,7 @@ app.include_router(workflow_router)
 
 from app.agents import router as agents_router
 app.include_router(agents_router)
+
+
+from app.analysis_proposals import router as analysis_proposals_router
+app.include_router(analysis_proposals_router)
