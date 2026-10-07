@@ -91,6 +91,52 @@ export default function Chat({
     }
   }
 
+  async function decideConfirmation(index, decision) {
+    const entry = history[index];
+    const pending = entry?.data?.confirmation;
+    if (!pending || entry.resolution || busy || inFlight.current) return;
+
+    inFlight.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      const response = await api(
+        `/chat/confirmations/${pending.id}/decision`,
+        {
+          token: session.token,
+          body: { decision },
+          withMeta: true,
+        }
+      );
+      setHistory(items => items.map((item, position) =>
+        position === index
+          ? {
+              ...item,
+              resolution: response.data,
+              decisionTraceId: response.traceId,
+              confirmationError: null,
+            }
+          : item
+      ));
+    } catch (err) {
+      if (err.status === 401) onExpired();
+      else {
+        setHistory(items => items.map((item, position) =>
+          position === index
+            ? {
+                ...item,
+                confirmationError: err.message,
+                decisionTraceId: err.traceId,
+              }
+            : item
+        ));
+      }
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="analysis-page">
       <section className="panel analysis-card">
@@ -100,8 +146,8 @@ export default function Chat({
           de consommation. Chaque demande est traitée indépendamment.
         </p>
         <div className="notice">
-          Une demande d’analyse enregistre une nouvelle analyse pour les
-          opérateurs et administrateurs. Les propositions et leur validation
+          Une demande d’analyse prépare une prévisualisation. Son enregistrement
+          nécessite votre confirmation. Les propositions et leur validation
           restent accessibles dans les pages dédiées.
         </div>
 
@@ -186,6 +232,63 @@ export default function Chat({
                     <p className="badge">Précision nécessaire</p>
                   )}
                   <p className="chat-text">{item.data.answer}</p>
+                  {item.data.needs_confirmation && (
+                    <div className="notice">
+                      <h4>Analyse à enregistrer</h4>
+                      <p>
+                        Compteur : {item.data.confirmation.sensor_id}
+                        {" · "}Ressource : {item.data.confirmation.resource}
+                      </p>
+                      <p>
+                        Données au : {new Date(
+                          item.data.confirmation.preview.data_as_of
+                        ).toLocaleString("fr-FR")}
+                      </p>
+                      <p>
+                        Dernière valeur : {item.data.confirmation.preview.latest_value}
+                        {" "}{item.data.confirmation.preview.unit}
+                        {" · "}Seuil : {item.data.confirmation.preview.threshold_value}
+                        {" "}{item.data.confirmation.preview.unit}
+                      </p>
+                      <p>{item.data.confirmation.preview.interpretation}</p>
+                      <p>
+                        Cette prévisualisation utilise les mesures capturées
+                        au moment de la demande.
+                        Confirmer enregistre l’analyse, sans créer de proposition.
+                      </p>
+                      <p>
+                        Confirmation possible jusqu’au : {new Date(
+                          item.data.confirmation.expires_at
+                        ).toLocaleString("fr-FR")}
+                      </p>
+                      {!item.resolution ? (
+                        <div className="workflow-actions">
+                          <button disabled={busy}
+                            onClick={() => decideConfirmation(index, "confirm")}>
+                            Confirmer l’enregistrement
+                          </button>
+                          <button className="secondary" disabled={busy}
+                            onClick={() => decideConfirmation(index, "cancel")}>
+                            Annuler
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="analysis-id" role="status">
+                          {item.resolution.status === "confirmed"
+                            ? `Analyse enregistrée : ${item.resolution.analysis_id}`
+                            : "Demande annulée : aucune analyse enregistrée."}
+                        </p>
+                      )}
+                      {item.confirmationError && (
+                        <p className="error" role="alert">{item.confirmationError}</p>
+                      )}
+                      {item.decisionTraceId && (
+                        <p className="analysis-id">
+                          Trace de la décision : {item.decisionTraceId}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   {item.data.analysis_id && (
                     <p className="analysis-id">Analyse : {item.data.analysis_id}</p>
                   )}

@@ -4,7 +4,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.agents import AnalysisInput, get_analysis, run_analysis
+from app.agents import get_analysis
+from app.chat_confirmations import prepare_analysis
 from app.auth import current_user
 from app.db import connect, set_tenant
 from app.intent_gate import GATE_VERSION, classify
@@ -136,23 +137,20 @@ def chat(
         return answer(intent, text, sources=[source])
 
     if intent == "recommendation_request":
-        created = run_analysis(
+        confirmation = prepare_analysis(
             resource=body.resource,
-            body=AnalysisInput(sensor_id=body.sensor_id),
+            sensor_id=body.sensor_id,
             request=request,
             user=user,
         )
-        result = created["result"]
-
         return answer(
             intent,
-            result["interpretation"],
-            sources=result["sources"],
-            analysis_id=str(created["id"]),
-            classification=result["classification"],
-            suggested_proposal=result["suggested_proposal"],
+            "Vérifiez la prévisualisation, puis confirmez ou annulez "
+            "l’enregistrement de cette analyse.",
+            sources=confirmation["preview"]["sources"],
+            needs_confirmation=True,
+            confirmation=confirmation,
             proposal_created=False,
-            limitations=result["limitations"],
         )
 
     raise HTTPException(400, "Intent non pris en charge")

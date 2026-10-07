@@ -67,3 +67,6 @@ app.include_router(analysis_proposals_router)
 
 from app.chat import router as chat_router
 app.include_router(chat_router)
+
+from app.chat_confirmations import router as chat_confirmations_router
+app.include_router(chat_confirmations_router)
