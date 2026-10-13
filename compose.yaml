@@ -2,6 +2,11 @@ name: aegisai
 
 services:
   db:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     image: postgres:17-bookworm
     environment:
       POSTGRES_DB: aegisai
@@ -21,6 +26,11 @@ services:
     restart: unless-stopped
 
   backend:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     build: ./backend
     environment:
       JWT_SECRET: ${JWT_SECRET:?Missing JWT_SECRET}
@@ -51,6 +61,11 @@ services:
 
 
   frontend:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     build: ./frontend
     ports:
       - "127.0.0.1:8080:8080"

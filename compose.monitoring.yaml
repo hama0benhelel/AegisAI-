@@ -1,5 +1,10 @@
 services:
   loki:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     image: grafana/loki@sha256:c316b7c7589a5eeca843b6926c7446149d18300b79ac8538dc4ae063bc478da2
     command: ["-config.file=/etc/loki/loki.yaml"]
     volumes:
@@ -14,6 +19,11 @@ services:
     restart: unless-stopped
 
   alloy:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     image: grafana/alloy@sha256:2aa2099af76c0098d4af7a4d6e48f86cb66dc1a000222ad927a1c67c6542d13f
     user: "0:0"
     group_add: ["4"]
@@ -34,6 +44,11 @@ services:
     restart: unless-stopped
 
   grafana:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     image: grafana/grafana@sha256:dbbc38ea21103cefb50396340cd88afec779c7e070b0a7bf5a75b4ce46651d3f
     environment:
       GF_SECURITY_ADMIN_USER: soc_admin
