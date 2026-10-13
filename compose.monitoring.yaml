@@ -16,6 +16,7 @@ services:
   alloy:
     image: grafana/alloy@sha256:2aa2099af76c0098d4af7a4d6e48f86cb66dc1a000222ad927a1c67c6542d13f
     user: "0:0"
+    group_add: ["4"]
     command:
       - run
       - --storage.path=/var/lib/alloy
@@ -24,6 +25,7 @@ services:
       - ./infra/monitoring/alloy:/etc/alloy:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - alloy_data:/var/lib/alloy
+      - /var/log:/host/var/log:ro
     networks: [monitoring]
     depends_on: [loki]
     mem_limit: 192m

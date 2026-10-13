@@ -35,3 +35,117 @@ loki.write "local" {
     url = "http://loki:3100/loki/api/v1/push"
   }
 }
+
+
+loki.source.file "ssh" {
+  targets = [
+    {
+      __path__ = "/host/var/log/auth.log",
+      job = "aegisai",
+      service = "ssh",
+    },
+  ]
+  file_match {
+    enabled = true
+    sync_period = "10s"
+  }
+  tail_from_end = true
+  forward_to = [loki.process.ssh.receiver]
+}
+
+loki.process "ssh" {
+  stage.match {
+    selector = "{service=\"ssh\"} != \"sshd[\""
+    action = "drop"
+    drop_counter_reason = "not_sshd"
+  }
+
+  stage.static_labels {
+    values = {
+      event_type = "ssh_other",
+    }
+  }
+
+  stage.match {
+    selector = "{service=\"ssh\"} |= \"Accepted publickey\""
+    stage.static_labels {
+      values = {
+        event_type = "ssh_login_success",
+      }
+    }
+  }
+
+  stage.match {
+    selector = "{service=\"ssh\"} |= \"Invalid user\""
+    stage.static_labels {
+      values = {
+        event_type = "ssh_invalid_user",
+      }
+    }
+  }
+
+  stage.match {
+    selector = "{service=\"ssh\"} |~ \"Failed (publickey|password)\""
+    stage.static_labels {
+      values = {
+        event_type = "ssh_authentication_failed",
+      }
+    }
+  }
+
+  stage.match {
+    selector = "{service=\"ssh\"} |= \"Connection closed by authenticating user\""
+    stage.static_labels {
+      values = {
+        event_type = "ssh_preauth_closed",
+      }
+    }
+  }
+
+  forward_to = [loki.write.local.receiver]
+}
+
+
+loki.source.file "fail2ban" {
+  targets = [
+    {
+      __path__ = "/host/var/log/fail2ban.log",
+      job = "aegisai",
+      service = "fail2ban",
+    },
+  ]
+  file_match {
+    enabled = true
+    sync_period = "10s"
+  }
+  tail_from_end = true
+  forward_to = [loki.process.fail2ban.receiver]
+}
+
+loki.process "fail2ban" {
+  stage.static_labels {
+    values = {
+      event_type = "fail2ban_other",
+    }
+  }
+
+  stage.match {
+    selector = "{service=\"fail2ban\"} |= \"[sshd] Ban \""
+    stage.static_labels {
+      values = {
+        event_type = "fail2ban_ban",
+      }
+    }
+  }
+
+  stage.match {
+    selector = "{service=\"fail2ban\"} |= \"[sshd] Unban \""
+    stage.static_labels {
+      values = {
+        event_type = "fail2ban_unban",
+      }
+    }
+  }
+
+  forward_to = [loki.write.local.receiver]
+}
