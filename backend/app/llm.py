@@ -11,7 +11,7 @@ from psycopg.types.json import Jsonb
 from app.db import connect, set_tenant
 
 MODEL = "openai/gpt-oss-20b"
-PROMPT_VERSION = "grounded-summary-v1"
+PROMPT_VERSION = "grounded-summary-v2"
 ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 
 SYSTEM_PROMPT = """
@@ -27,6 +27,9 @@ Retourne un objet JSON avec :
 - answer : la réponse courte ;
 - source_ids : les reading_id fournis qui soutiennent la réponse.
 N'invente aucun identifiant de source.
+Pour les nombres, utilise la notation française :
+virgule décimale, aucune décimale inutile et aucun point séparateur de milliers.
+Exemple : 240.000 dans les données signifie 240 ; écris « 240 kWh ».
 """
 
 

@@ -1,0 +1,657 @@
+{
+  "dataset": "llm-grounding-smoke-v1",
+  "started_at": "2026-10-13T17:49:20.114219+00:00",
+  "git_commit": "69850e8f617ba0f8144d326476e399f1ce9a34ad",
+  "llm_code_sha256": "1afc7c4537eb52ce5e09fe043d3dd41d5c8e3685c79fea245db2f1a503be98c2",
+  "evaluation_code_sha256": "852b896141ae84a49484c49ac8535683af70d768a91fcf852c8b37232aad8303",
+  "scope": "Four synthetic cases, one attempt each; manual semantic review required.",
+  "cases": [
+    {
+      "id": "LLM-001",
+      "request": {
+        "message": "Affiche la consommation",
+        "resource": "water",
+        "sensor_id": "A-WATER-01"
+      },
+      "expected": {
+        "sensor_id": "A-WATER-01",
+        "latest_value": 35,
+        "unit": "m3"
+      },
+      "review_guidance": [
+        "La réponse donne 35 m3 ou 35 m³ pour A-WATER-01.",
+        "Toute date annoncée correspond à la source.",
+        "Elle ne présente pas une mesure historique comme du temps réel.",
+        "Elle n'invente ni cause, ni action réalisée."
+      ],
+      "manual_review": {
+        "facts_and_units_correct": null,
+        "interpretation_correct": null,
+        "no_unsupported_assertion": null,
+        "notes": ""
+      },
+      "http_status": 200,
+      "trace_id": "f8df3c97-326c-43f1-936a-29653510c3ca",
+      "response": {
+        "mode": "grounded_llm",
+        "llm_used": true,
+        "gate_version": "bounded-grammar-fr-en-v2",
+        "intent": "q_and_a",
+        "answer": "La dernière mesure horaire disponible pour A-WATER-01 est de 35 m³, à 2026‑10‑02 15:00 UTC.",
+        "sources": [
+          {
+            "reading_id": "d94d0dd7-c31e-ef3f-e3a7-68ba20019d93",
+            "sensor_id": "A-WATER-01",
+            "value": 35.0,
+            "unit": "m3",
+            "measured_at": "2026-10-02T15:00:00+00:00",
+            "data_source": "synthetic_hourly_v1",
+            "interval_seconds": 3600
+          }
+        ],
+        "llm_status": "success",
+        "llm_provider": "groq",
+        "llm_model": "openai/gpt-oss-20b",
+        "llm_call_id": "43b57129-aef4-436a-9c58-4a8d269d245f",
+        "cited_source_ids": [
+          "d94d0dd7-c31e-ef3f-e3a7-68ba20019d93"
+        ]
+      },
+      "automatic_checks": {
+        "llm_response_received": true,
+        "sources_present": true,
+        "references_valid": true,
+        "source_matches_fixture": true
+      },
+      "semantic_verdict": "pending_manual_review"
+    },
+    {
+      "id": "LLM-002",
+      "request": {
+        "message": "Affiche la consommation",
+        "resource": "energy",
+        "sensor_id": "A-ENERGY-01"
+      },
+      "expected": {
+        "sensor_id": "A-ENERGY-01",
+        "latest_value": 240,
+        "unit": "kWh"
+      },
+      "review_guidance": [
+        "La réponse donne 240 kWh pour A-ENERGY-01.",
+        "Elle ne confond pas énergie (kWh) et puissance (kW).",
+        "Toute date annoncée correspond à la source.",
+        "Elle n'invente ni cause, ni action réalisée."
+      ],
+      "manual_review": {
+        "facts_and_units_correct": null,
+        "interpretation_correct": null,
+        "no_unsupported_assertion": null,
+        "notes": ""
+      },
+      "http_status": 200,
+      "trace_id": "ffcfda68-5f0b-43cd-adc5-3c8f361d891e",
+      "response": {
+        "mode": "grounded_llm",
+        "llm_used": true,
+        "gate_version": "bounded-grammar-fr-en-v2",
+        "intent": "q_and_a",
+        "answer": "La dernière mesure horaire disponible pour A-ENERGY-01 est de 240.000 kWh, à 2026-10-02T15:00:00+00:00.",
+        "sources": [
+          {
+            "reading_id": "d07bedde-3373-ba54-c4c6-c1481aa64b70",
+            "sensor_id": "A-ENERGY-01",
+            "value": 240.0,
+            "unit": "kWh",
+            "measured_at": "2026-10-02T15:00:00+00:00",
+            "data_source": "synthetic_hourly_v1",
+            "interval_seconds": 3600
+          }
+        ],
+        "llm_status": "success",
+        "llm_provider": "groq",
+        "llm_model": "openai/gpt-oss-20b",
+        "llm_call_id": "657fbba0-4380-4917-9a5a-98701bf0e35a",
+        "cited_source_ids": [
+          "d07bedde-3373-ba54-c4c6-c1481aa64b70"
+        ]
+      },
+      "automatic_checks": {
+        "llm_response_received": true,
+        "sources_present": true,
+        "references_valid": true,
+        "source_matches_fixture": true
+      },
+      "semantic_verdict": "pending_manual_review"
+    },
+    {
+      "id": "LLM-003",
+      "request": {
+        "message": "Explique cette analyse",
+        "analysis_id": "4d3cd610-e178-4b81-b641-a2db3eaffac9"
+      },
+      "expected": {
+        "latest_value": 35,
+        "baseline_mean": 10,
+        "threshold_value": 20,
+        "unit": "m3",
+        "classification": "high_consumption"
+      },
+      "review_guidance": [
+        "Elle explique le dépassement du seuil, ou de deux fois la moyenne.",
+        "Les chiffres annoncés correspondent à 35, moyenne 10, seuil 20.",
+        "Elle ne transforme pas le dépassement en fuite confirmée.",
+        "Elle n'invente ni inspection réalisée, ni correction exécutée."
+      ],
+      "manual_review": {
+        "facts_and_units_correct": null,
+        "interpretation_correct": null,
+        "no_unsupported_assertion": null,
+        "notes": ""
+      },
+      "http_status": 200,
+      "trace_id": "1360c4bf-c202-4cf2-8c0c-7fbdaed162c1",
+      "response": {
+        "mode": "grounded_llm",
+        "llm_used": true,
+        "gate_version": "bounded-grammar-fr-en-v2",
+        "intent": "anomaly_follow_up",
+        "answer": "La dernière heure de consommation est de 35 m³, ce qui dépasse deux fois la moyenne des 23 précédentes (10 m³). Cette valeur dépasse également le seuil de 20 m³. Aucun facteur explicatif n’est confirmé par les données disponibles.",
+        "sources": [
+          {
+            "unit": "m3",
+            "value": 10.0,
+            "reading_id": "e5d39b5d-34fc-328f-866a-26b8facc1ce1",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-01T16:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 10.0,
+            "reading_id": "6cac7b17-b701-4fe6-1cfc-a524e7c23761",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-01T17:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 10.0,
+            "reading_id": "f7b8fda9-0573-b303-0312-513be6757f71",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-01T18:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 10.0,
+            "reading_id": "6b867bad-866e-86ef-1682-5f3deed3c917",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-01T19:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 10.0,
+            "reading_id": "6c897df2-de23-949a-eea7-b3fc73c0c918",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-01T20:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 10.0,
+            "reading_id": "487973b6-a4a3-04b8-73c1-18f85d3b6aad",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-01T21:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 10.0,
+            "reading_id": "1ce8dbdf-8430-933d-bffa-6533a0a9327c",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-01T22:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 10.0,
+            "reading_id": "1a21ce0e-29e9-9892-9d68-3328248914ca",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-01T23:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 10.0,
+            "reading_id": "0d3b3e39-bb8a-81c6-f5ba-bd8bd79161b9",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T00:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 10.0,
+            "reading_id": "20fe111f-c8df-3f82-d7b9-a6123b346077",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T01:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 10.0,
+            "reading_id": "7e405802-d956-f733-64bd-a3ec581fe4c0",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T02:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 10.0,
+            "reading_id": "36b2d756-7ee3-d665-d1c2-da220bf3a511",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T03:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 10.0,
+            "reading_id": "c1ce18d8-17c5-f3cc-bead-5c963508a721",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T04:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 10.0,
+            "reading_id": "02451542-6898-bcf6-8282-ac4ce9cc8875",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T05:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 10.0,
+            "reading_id": "de26a4c6-6b37-946a-46df-4563542fb4fb",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T06:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 10.0,
+            "reading_id": "a435f219-20a5-36b5-bd4f-732d5ceef98f",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T07:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 10.0,
+            "reading_id": "628b072e-79f3-f2f3-769d-21e9f21a4f6a",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T08:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 10.0,
+            "reading_id": "bb9075a0-86c8-0e35-ff4b-c1ca662c3321",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T09:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 10.0,
+            "reading_id": "ff866cc3-82cf-58b9-32f1-5b8b0300492c",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T10:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 10.0,
+            "reading_id": "bd3a3b58-2c4a-d605-5e82-7449004df23a",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T11:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 10.0,
+            "reading_id": "4f553814-8476-dd1c-85ef-dd107946ecd2",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T12:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 10.0,
+            "reading_id": "e84c8322-7940-3a66-84a4-e3bd58b38be0",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T13:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 10.0,
+            "reading_id": "f7b8f737-a0cd-3e5f-c930-f851ab867433",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T14:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 35.0,
+            "reading_id": "d94d0dd7-c31e-ef3f-e3a7-68ba20019d93",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T15:00:00+00:00",
+            "interval_seconds": 3600
+          }
+        ],
+        "analysis_id": "4d3cd610-e178-4b81-b641-a2db3eaffac9",
+        "classification": "high_consumption",
+        "baseline_mean": 10.0,
+        "threshold_value": 20.0,
+        "latest_value": 35.0,
+        "data_as_of": "2026-10-02T15:00:00+00:00",
+        "limitations": [
+          "Règle non calibrée sur des données industrielles.",
+          "Aucune cause racine confirmée.",
+          "Résultat valable à la date des données, pas une mesure en temps réel."
+        ],
+        "llm_status": "success",
+        "llm_provider": "groq",
+        "llm_model": "openai/gpt-oss-20b",
+        "llm_call_id": "dbfb73b5-69e8-42c6-a4d3-b2840d864779",
+        "cited_source_ids": [
+          "d94d0dd7-c31e-ef3f-e3a7-68ba20019d93"
+        ]
+      },
+      "automatic_checks": {
+        "llm_response_received": true,
+        "sources_present": true,
+        "references_valid": true
+      },
+      "semantic_verdict": "pending_manual_review"
+    },
+    {
+      "id": "LLM-004",
+      "request": {
+        "message": "Explique cette analyse",
+        "analysis_id": "eefa7ca4-1c98-4ac7-a1e8-46cf44f4eb9f"
+      },
+      "expected": {
+        "latest_value": 8,
+        "baseline_mean": 8,
+        "threshold_value": 16,
+        "unit": "m3",
+        "classification": "normal"
+      },
+      "review_guidance": [
+        "Elle indique l'absence de dépassement selon cette règle.",
+        "Les chiffres annoncés correspondent à 8, moyenne 8, seuil 16.",
+        "Elle ne garantit pas l'absence de panne ou de fuite.",
+        "Elle ne mentionne aucune donnée du Client A."
+      ],
+      "manual_review": {
+        "facts_and_units_correct": null,
+        "interpretation_correct": null,
+        "no_unsupported_assertion": null,
+        "notes": ""
+      },
+      "http_status": 200,
+      "trace_id": "c4b07818-b3e7-4f61-a0c9-522566ad3a5f",
+      "response": {
+        "mode": "grounded_llm",
+        "llm_used": true,
+        "gate_version": "bounded-grammar-fr-en-v2",
+        "intent": "anomaly_follow_up",
+        "answer": "La dernière mesure de 8 m³ ne dépasse pas le seuil de 16 m³, d’où une classification normale.",
+        "sources": [
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "05154465-1ecd-604c-8c9a-180ccbb8ac77",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-01T16:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "d8d99ab0-9b8c-cce1-7923-f9566088e05c",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-01T17:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "f46f19fa-9001-32e8-025d-0fbab2cdfe31",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-01T18:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "b7bb7dc6-f1a8-ab3c-f159-ba9fcc1f5b1e",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-01T19:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "4a447983-0ce5-a269-ace3-c1b7a7047566",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-01T20:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "38400a81-7b14-391c-492d-a1bcc4b4010d",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-01T21:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "958d2783-6a84-26ee-a1e2-b24e64a79e6a",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-01T22:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "c2779012-90ef-e9be-5bf0-f0cbf98e59f4",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-01T23:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "2aaa97b5-2b3c-481f-0479-d31022d18622",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T00:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "d543432c-4f5b-32dd-b5ed-7c0ae01cd17d",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T01:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "0ecfa357-efbd-c737-5792-46a9e2a85bcd",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T02:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "eed7aa1a-3c07-6459-3f17-554bab173b45",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T03:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "3b38934f-6ea0-01f6-2bee-5f8d08c02314",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T04:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "1d46a13f-fc8a-5506-3c84-0385a1b14020",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T05:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "0b11d189-8df6-f503-39f5-91b3c3f79322",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T06:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "dce4cd59-174d-b146-4d56-52004c2d519a",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T07:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "97b18537-6df7-54e6-fd89-8437dc032958",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T08:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "c1debb4d-2b09-ff19-f27f-76ac3380dc50",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T09:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "4f66f2f6-04b1-712d-2013-4d2d4795ff3a",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T10:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "da722bc3-5bca-5a20-500a-56bc3a4bf4f1",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T11:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "da3d8923-089b-af84-eb07-bdd8a6634b7f",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T12:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "926b4438-e8fd-8816-f1fa-bde5fa12778d",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T13:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "8d38c4aa-5b18-673d-324a-352fe9a3e951",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T14:00:00+00:00",
+            "interval_seconds": 3600
+          },
+          {
+            "unit": "m3",
+            "value": 8.0,
+            "reading_id": "fadbc71b-dc23-1161-e100-613bc1d47d04",
+            "data_source": "synthetic_hourly_v1",
+            "measured_at": "2026-10-02T15:00:00+00:00",
+            "interval_seconds": 3600
+          }
+        ],
+        "analysis_id": "eefa7ca4-1c98-4ac7-a1e8-46cf44f4eb9f",
+        "classification": "normal",
+        "baseline_mean": 8.0,
+        "threshold_value": 16.0,
+        "latest_value": 8.0,
+        "data_as_of": "2026-10-02T15:00:00+00:00",
+        "limitations": [
+          "Règle non calibrée sur des données industrielles.",
+          "Aucune cause racine confirmée.",
+          "Résultat valable à la date des données, pas une mesure en temps réel."
+        ],
+        "llm_status": "success",
+        "llm_provider": "groq",
+        "llm_model": "openai/gpt-oss-20b",
+        "llm_call_id": "5e76e5f6-6d5f-4a83-8410-dd7bf549f73f",
+        "cited_source_ids": [
+          "05154465-1ecd-604c-8c9a-180ccbb8ac77",
+          "d8d99ab0-9b8c-cce1-7923-f9566088e05c",
+          "f46f19fa-9001-32e8-025d-0fbab2cdfe31",
+          "b7bb7dc6-f1a8-ab3c-f159-ba9fcc1f5b1e",
+          "4a447983-0ce5-a269-ace3-c1b7a7047566",
+          "38400a81-7b14-391c-492d-a1bcc4b4010d",
+          "958d2783-6a84-26ee-a1e2-b24e64a79e6a",
+          "c2779012-90ef-e9be-5bf0-f0cbf98e59f4",
+          "2aaa97b5-2b3c-481f-0479-d31022d18622",
+          "d543432c-4f5b-32dd-b5ed-7c0ae01cd17d",
+          "0ecfa357-efbd-c737-5792-46a9e2a85bcd",
+          "eed7aa1a-3c07-6459-3f17-554bab173b45",
+          "3b38934f-6ea0-01f6-2bee-5f8d08c02314",
+          "1d46a13f-fc8a-5506-3c84-0385a1b14020",
+          "0b11d189-8df6-f503-39f5-91b3c3f79322",
+          "dce4cd59-174d-b146-4d56-52004c2d519a",
+          "97b18537-6df7-54e6-fd89-8437dc032958",
+          "c1debb4d-2b09-ff19-f27f-76ac3380dc50",
+          "4f66f2f6-04b1-712d-2013-4d2d4795ff3a",
+          "da722bc3-5bca-5a20-500a-56bc3a4bf4f1",
+          "da3d8923-089b-af84-eb07-bdd8a6634b7f",
+          "926b4438-e8fd-8816-f1fa-bde5fa12778d",
+          "8d38c4aa-5b18-673d-324a-352fe9a3e951",
+          "fadbc71b-dc23-1161-e100-613bc1d47d04"
+        ]
+      },
+      "automatic_checks": {
+        "llm_response_received": true,
+        "sources_present": true,
+        "references_valid": true
+      },
+      "semantic_verdict": "pending_manual_review"
+    }
+  ]
+}
