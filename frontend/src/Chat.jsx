@@ -341,6 +341,10 @@ export default function Chat({
                     <>
                       <p>Intent : {item.data.intent}</p>
                       <p>Mode : {item.data.mode}</p>
+                      <p>Statut LLM : {item.data.llm_status || "Non sollicité"}</p>
+                      {item.data.llm_model && <p>Modèle : {item.data.llm_model}</p>}
+                      {item.data.llm_reason && <p>Motif du secours : {item.data.llm_reason}</p>}
+                      {item.data.llm_call_id && <p>Appel LLM : {item.data.llm_call_id}</p>}
                       <p>LLM utilisé : {item.data.llm_used ? "Oui" : "Non"}</p>
                     </>
                   )}

@@ -9,6 +9,7 @@ from app.chat_confirmations import prepare_analysis
 from app.auth import current_user
 from app.db import connect, set_tenant
 from app.intent_gate import GATE_VERSION, classify
+from app.llm import render_with_llm
 
 router = APIRouter(tags=["Chatbot"])
 
@@ -73,7 +74,7 @@ def chat(
         stored = get_analysis(analysis_id=body.analysis_id, user=user)
         result = stored["result"]
 
-        return answer(
+        payload = answer(
             intent,
             result["interpretation"],
             sources=result["sources"],
@@ -85,6 +86,7 @@ def chat(
             data_as_of=result["data_as_of"],
             limitations=result["limitations"],
         )
+        return render_with_llm(request, user, payload)
 
     if intent == "recommendation_request":
         # Direct Python calls don't execute FastAPI dependencies.
@@ -134,7 +136,8 @@ def chat(
             f"{reading['unit']}, à {reading['measured_at'].isoformat()}. "
             f"Source: {reading['data_source']}."
         )
-        return answer(intent, text, sources=[source])
+        payload = answer(intent, text, sources=[source])
+        return render_with_llm(request, user, payload)
 
     if intent == "recommendation_request":
         confirmation = prepare_analysis(
