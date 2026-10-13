@@ -5,6 +5,7 @@ import Analyses from "./Analyses.jsx";
 import Workflow from "./Workflow.jsx";
 import Audit from "./Audit.jsx";
 import Chat from "./Chat.jsx";
+import LLMJournal from "./LLMJournal.jsx";
 
 async function api(path, { token, body, withMeta = false } = {}) {
   const headers = {};
@@ -172,6 +173,12 @@ function App() {
             disabled={busy} onClick={() => setPage("chat")}>
             Assistant
           </button>
+          {session.user.role === "tenant_admin" && (
+            <button className={page === "llm" ? "nav-active" : "secondary"}
+              disabled={busy} onClick={() => setPage("llm")}>
+              Journal LLM
+            </button>
+          )}
         </nav>
         <div className="sidebar-bottom">
           <span className="badge">{session.user.role}</span>
@@ -187,7 +194,7 @@ function App() {
             <h1>{page === "readings" ? "Vue des mesures"
               : page === "analyses" ? "Analyses"
               : page === "workflow" ? "Propositions et tâches"
-              : page === "audit" ? "Journal d’audit" : "Assistant"}</h1>
+              : page === "audit" ? "Journal d’audit" : page === "llm" ? "Journal LLM" : "Assistant"}</h1>
             <p className="muted">Consommations et historique accessibles à votre compte.</p>
           </div>
           <button className="secondary" disabled={busy}
@@ -202,7 +209,19 @@ function App() {
         </div>
         {error && <p className="error" role="alert">{error}</p>}
 
-        {page === "chat" ? (
+        {page === "llm" ? (
+          <LLMJournal
+            key={session.user.id}
+            api={api}
+            session={session}
+            busy={busy}
+            setBusy={setBusy}
+            onExpired={() => {
+              signOut();
+              setError("Session expirée. Reconnectez-vous.");
+            }}
+          />
+        ) : page === "chat" ? (
           <Chat
             key={session.user.id}
             api={api}

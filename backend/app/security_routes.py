@@ -33,3 +33,32 @@ def read_audit(
         ).fetchall()
 
     return {"items": events}
+
+
+@router.get("/llm-calls")
+def read_llm_calls(
+    tenant_id: UUID | None = None,
+    limit: int = Query(default=100, ge=1, le=100),
+    user=Depends(require_roles("tenant_admin")),
+):
+    if tenant_id is not None and tenant_id != user["tenant_id"]:
+        raise HTTPException(403, "Accès à un autre tenant interdit")
+
+    with connect() as conn:
+        set_tenant(conn, user["tenant_id"])
+        rows = conn.execute(
+            """
+            SELECT id, tenant_id, user_id, trace_id,
+                   created_at, completed_at, provider, model,
+                   operation, prompt_version, status, reason,
+                   prompt_tokens, completion_tokens, total_tokens,
+                   duration_ms
+            FROM bws_ai.llm_calls
+            WHERE tenant_id = %s
+            ORDER BY created_at DESC, id DESC
+            LIMIT %s
+            """,
+            (user["tenant_id"], limit),
+        ).fetchall()
+
+    return {"items": rows}
