@@ -125,6 +125,20 @@ def finish_call(user, call_id, status, reason, output, usage, duration):
 
 
 def render_with_llm(request, user, payload):
+    # Daily totals and coverage wording are computed by the backend.
+    if (
+        payload.get("intent") == "q_and_a"
+        and isinstance(payload.get("period"), dict)
+        and payload["period"].get("kind") in {"today", "yesterday"}
+    ):
+        return {
+            **payload,
+            "mode": "grounded_template",
+            "llm_used": False,
+            "llm_status": "not_requested",
+            "llm_reason": "deterministic_daily_summary",
+        }
+
     if os.getenv("LLM_ENABLED", "false").lower() != "true":
         return {**payload, "llm_status": "disabled"}
 
