@@ -1,3 +1,4 @@
+from app.chat_context import resolve_sensor
 from typing import Literal
 from uuid import UUID
 
@@ -64,11 +65,35 @@ def chat(
             },
         )
 
+    dialogue_act = gate.get("dialogue_act")
+    if dialogue_act:
+        replies = {
+            "greeting": (
+                "Bonjour ! Je peux vous aider à consulter vos consommations "
+                "d’eau et d’électricité, comprendre une analyse ou préparer "
+                "une nouvelle analyse. Que souhaitez-vous consulter ?"
+            ),
+            "thanks": (
+                "Avec plaisir ! Souhaitez-vous consulter une consommation "
+                "ou comprendre une analyse ?"
+            ),
+            "help": (
+                "Je peux consulter la dernière mesure disponible de vos "
+                "compteurs, expliquer une analyse enregistrée et préparer "
+                "une analyse à confirmer. Par exemple : "
+                "« Quelle est ma consommation d’eau ? ». "
+                "L’enregistrement d’une analyse nécessite votre confirmation."
+            ),
+        }
+        return answer(
+            intent, replies[dialogue_act], dialogue_act=dialogue_act
+        )
+
     if intent == "anomaly_follow_up":
         if body.analysis_id is None:
             return clarify(
                 request, intent,
-                "Sélectionnez une analyse existante avec analysis_id.",
+                "Sélectionnez l’analyse enregistrée que vous souhaitez comprendre.",
             )
 
         stored = get_analysis(analysis_id=body.analysis_id, user=user)
@@ -94,11 +119,23 @@ def chat(
         if user["role"] not in {"operator", "tenant_admin", "client"}:
             raise HTTPException(403, "Permissions insuffisantes")
 
-    if body.sensor_id is None or body.resource is None:
-        return clarify(
+    selected, choices = resolve_sensor(
+        user,
+        sensor_id=body.sensor_id,
+        resource=body.resource or gate.get("resource_hint"),
+    )
+    if selected is None:
+        payload = clarify(
             request, intent,
-            "Sélectionnez sensor_id et resource (water ou energy).",
+            "Quel compteur souhaitez-vous consulter ? "
+            "Sélectionnez-le parmi vos compteurs disponibles.",
         )
+        return {**payload, "available_sensors": choices}
+
+    body = body.model_copy(update={
+        "sensor_id": selected["sensor_id"],
+        "resource": selected["resource"],
+    })
 
     if intent == "q_and_a":
         with connect() as conn:
