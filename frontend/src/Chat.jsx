@@ -1,135 +1,71 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { Icon, Message, number, date, resourceInfo } from "./ui.jsx";
 
-const reasons = {
-  suspicious_instruction: "Instruction potentiellement dangereuse détectée.",
-  write_action_not_available_in_chat:
-    "L’approbation et l’exécution passent par la page Propositions et tâches.",
-  intent_not_enabled: "Cette fonctionnalité n’est pas activée dans l’assistant.",
-  out_of_scope_or_unrecognized:
-    "Demande hors périmètre ou formulation non reconnue. Essayez un exemple proposé.",
+const reasonText = {
+  suspicious_instruction: "Cette demande a été refusée par les contrôles de sécurité.",
+  out_of_scope_or_unrecognized: "Je n’ai pas reconnu cette formulation. Essayez une question sur votre consommation ou demandez de l’aide.",
+  write_action_not_available_in_chat: "Cette opération passe par les boutons de confirmation ou la page Mes actions.",
+  intent_not_enabled: "Cette fonctionnalité n’est pas encore disponible.",
 };
 
-export default function Chat({
-  api, session, readings, busy, setBusy, onExpired,
-}) {
-  const [message, setMessage] = useState("");
-  const [sensorKey, setSensorKey] = useState("");
-  const [analysisId, setAnalysisId] = useState("");
+export default function Chat({ api, session, readings, busy, setBusy, onExpired, launch, onActions }) {
   const [history, setHistory] = useState([]);
-  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [selection, setSelection] = useState(null);
+  const [problem, setProblem] = useState("");
+  const [expired, setExpired] = useState(false);
+  const [clock, setClock] = useState(Date.now());
+  const conversation = useRef(null);
   const inFlight = useRef(false);
+  const sequence = useRef(0);
+  const bottom = useRef(null);
+  const input = useRef(null);
+  const consumedLaunch = useRef(null);
+  const sensors = [...new Map(readings.map(row => [JSON.stringify([row.resource, row.sensor_id]), { resource: row.resource, sensor_id: row.sensor_id }])).values()];
 
-  const sensors = [...new Map(readings.map(row => [
-    JSON.stringify([row.resource, row.sensor_id]),
-    { resource: row.resource, sensor_id: row.sensor_id },
-  ])).values()];
+  useEffect(() => { const timer = setInterval(() => setClock(Date.now()), 15000); return () => clearInterval(timer); }, []);
+  useEffect(() => { bottom.current?.scrollIntoView({ block: "nearest" }); }, [history, busy]);
+  useEffect(() => {
+    if (launch && consumedLaunch.current !== launch.id) {
+      consumedLaunch.current = launch.id;
+      setSelection(launch.sensor || null);
+      setMessage(launch.sensor ? "Affiche la consommation" : "");
+    }
+  }, [launch]);
 
-  function append(entry) {
-    setHistory(items => [...items, entry].slice(-20));
-  }
+  const update = (id, changes) => setHistory(items => items.map(item => item.id === id ? { ...item, ...changes } : item));
 
   async function send(event) {
     event.preventDefault();
-    if (busy || inFlight.current || !message.trim()) return;
-
-    const id = analysisId.trim();
-    if (id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
-      setError("L’identifiant d’analyse doit être un UUID valide ou rester vide.");
-      return;
-    }
-
-    const sensor = sensors.find(
-      item => JSON.stringify([item.resource, item.sensor_id]) === sensorKey
-    );
-    const body = { message: message.trim() };
-    if (sensor) {
-      body.resource = sensor.resource;
-      body.sensor_id = sensor.sensor_id;
-    }
-    if (id) body.analysis_id = id;
-
-    const question = body.message;
-    const context = {
-      sensor: sensor?.sensor_id,
-      analysis: id || null,
-    };
-
+    if (busy || inFlight.current || !message.trim() || expired) return;
+    const text = message.trim();
+    const selected = selection;
+    const id = ++sequence.current;
     inFlight.current = true;
     setBusy(true);
-    setError("");
-
+    setProblem("");
+    setMessage("");
+    setHistory(items => [...items, { id, question: text, pending: true }]);
     try {
-      const response = await api("/chat", {
-        token: session.token,
-        body,
-        withMeta: true,
-      });
-      append({
-        question, context,
-        data: response.data,
-        status: response.status,
-        traceId: response.traceId,
-      });
-      setMessage("");
-    } catch (err) {
-      if (err.status === 401) {
-        onExpired();
-      } else {
-        const reason = err.detail?.reason;
-        append({
-          question, context,
-          status: err.status,
-          traceId: err.traceId,
-          error: reasons[reason] || err.message,
-          reason,
-          gateVersion: err.detail?.gate_version,
-        });
+      if (!conversation.current) {
+        const created = await api("/chat/conversations", { token: session.token, body: {} });
+        conversation.current = created.id;
       }
-    } finally {
-      inFlight.current = false;
-      setBusy(false);
-    }
-  }
-
-  async function decideConfirmation(index, decision) {
-    const entry = history[index];
-    const pending = entry?.data?.confirmation;
-    if (!pending || entry.resolution || busy || inFlight.current) return;
-
-    inFlight.current = true;
-    setBusy(true);
-    setError("");
-    try {
-      const response = await api(
-        `/chat/confirmations/${pending.id}/decision`,
-        {
-          token: session.token,
-          body: { decision },
-          withMeta: true,
-        }
-      );
-      setHistory(items => items.map((item, position) =>
-        position === index
-          ? {
-              ...item,
-              resolution: response.data,
-              decisionTraceId: response.traceId,
-              confirmationError: null,
-            }
-          : item
-      ));
-    } catch (err) {
-      if (err.status === 401) onExpired();
+      const body = { message: text };
+      if (selected) {
+        if (selected.sensor_id) body.sensor_id = selected.sensor_id;
+        if (selected.resource) body.resource = selected.resource;
+        if (selected.analysis_id) body.analysis_id = selected.analysis_id;
+      }
+      const response = await api(`/chat/conversations/${conversation.current}/messages`, { token: session.token, body, withMeta: true });
+      update(id, { pending: false, data: response.data, traceId: response.traceId });
+      setSelection(null);
+    } catch (error) {
+      if (error.status === 401) onExpired();
       else {
-        setHistory(items => items.map((item, position) =>
-          position === index
-            ? {
-                ...item,
-                confirmationError: err.message,
-                decisionTraceId: err.traceId,
-              }
-            : item
-        ));
+        const detail = reasonText[error.detail?.reason] || error.message;
+        update(id, { pending: false, error: detail, traceId: error.traceId });
+        if (error.status === 409 && typeof error.detail === "string" && error.detail.includes("expirée")) setExpired(true);
       }
     } finally {
       inFlight.current = false;
@@ -137,223 +73,85 @@ export default function Chat({
     }
   }
 
-  return (
-    <div className="analysis-page">
-      <section className="panel analysis-card">
-        <h2>Assistant de consommation</h2>
-        <p className="muted">
-          Consultez une mesure, expliquez une analyse ou demandez une analyse
-          de consommation. Chaque demande est traitée indépendamment.
-        </p>
-        <div className="notice">
-          Une demande d’analyse prépare une prévisualisation. Son enregistrement
-          nécessite votre confirmation. Les propositions et leur validation
-          restent accessibles dans les pages dédiées.
-        </div>
+  async function decide(item, decision) {
+    const pending = item.data?.confirmation;
+    if (!pending || item.resolution || busy || inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
+    try {
+      const response = await api(`/chat/confirmations/${pending.id}/decision`, { token: session.token, body: { decision }, withMeta: true });
+      update(item.id, { resolution: response.data, confirmationError: null, decisionTraceId: response.traceId });
+    } catch (error) {
+      if (error.status === 401) onExpired();
+      else update(item.id, { confirmationError: error.message, decisionTraceId: error.traceId });
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  }
 
-        <p>Exemples — cliquez pour remplir le message, puis envoyez :</p>
-        <div className="workflow-actions">
-          {[
-            "Affiche la consommation",
-            "Explique cette analyse",
-            "Analyse la consommation",
-          ].map(example => (
-            <button key={example} type="button" className="secondary"
-              disabled={busy} onClick={() => setMessage(example)}>
-              {example}
-            </button>
-          ))}
-        </div>
+  function newConversation() {
+    if (busy || inFlight.current) return;
+    conversation.current = null;
+    setHistory([]);
+    setSelection(null);
+    setMessage("");
+    setProblem("");
+    setExpired(false);
+    input.current?.focus();
+  }
 
-        <form onSubmit={send} className="analysis-form chat-form">
-          <label>Compteur — pour consulter ou analyser sa consommation
-            <select value={sensorKey} disabled={busy}
-              onChange={event => setSensorKey(event.target.value)}>
-              <option value="">Aucun compteur sélectionné</option>
-              {sensors.map(sensor => {
-                const key = JSON.stringify([sensor.resource, sensor.sensor_id]);
-                return <option key={key} value={key}>
-                  {sensor.sensor_id} — {sensor.resource === "water" ? "Eau" : "Énergie"}
-                </option>;
-              })}
-            </select>
-          </label>
+  async function prepareProposal(item) {
+    if (busy || inFlight.current || !item.resolution?.analysis_id) return;
+    inFlight.current = true;
+    setBusy(true);
+    try {
+      const proposal = await api(`/analyses/${item.resolution.analysis_id}/proposal`, { token: session.token, body: {} });
+      update(item.id, { proposal, proposalError: null });
+    } catch (error) {
+      if (error.status === 401) onExpired();
+      else update(item.id, { proposalError: error.message });
+    } finally { inFlight.current = false; setBusy(false); }
+  }
 
-          <label>ID analyse — uniquement pour expliquer une analyse existante
-            <input value={analysisId} maxLength={36} disabled={busy}
-              placeholder="Copiez l’ID depuis la page Analyses"
-              onChange={event => setAnalysisId(event.target.value)} />
-          </label>
-
-          <label>Message
-            <textarea required rows={4} maxLength={1000} value={message}
-              disabled={busy}
-              onChange={event => setMessage(event.target.value)} />
-          </label>
-          <span className="muted">{message.length}/1000 caractères</span>
-
-          {error && <p className="error" role="alert">{error}</p>}
-          <button disabled={busy || !message.trim()}>
-            {busy ? "Traitement…" : "Envoyer la demande"}
-          </button>
-        </form>
-      </section>
-
-      <section className="panel analysis-card">
-        <div className="panel-header">
-          <h2>Échanges de cette session</h2>
-          <button className="secondary" disabled={busy || !history.length}
-            onClick={() => setHistory([])}>
-            Effacer l’affichage
-          </button>
-        </div>
-        <p className="muted">
-          Les 20 derniers échanges sont conservés ici tant que cette page reste
-          ouverte. Effacer l’affichage ne supprime pas les événements d’audit.
-        </p>
-
-        <div aria-live="polite">
-          {!history.length && <p>Aucune demande envoyée.</p>}
-          {history.map((item, index) => (
-            <article className="chat-entry" key={index}>
-              <h3>Vous</h3>
-              <p className="chat-text">{item.question}</p>
-              <p className="muted analysis-id">
-                Compteur : {item.context.sensor || "non sélectionné"}
-                {" · "}Analyse : {item.context.analysis || "non sélectionnée"}
-              </p>
-
-              <h3>{item.error ? "Demande non aboutie" : "Assistant"}</h3>
-              {item.error ? (
-                <p className="error">{item.error}</p>
-              ) : (
-                <>
-                  {item.data.needs_clarification && (
-                    <p className="badge">Précision nécessaire</p>
-                  )}
-                  <p className="chat-text">{item.data.answer}</p>
-                  {item.data.needs_confirmation && (
-                    <div className="notice">
-                      <h4>Analyse à enregistrer</h4>
-                      <p>
-                        Compteur : {item.data.confirmation.sensor_id}
-                        {" · "}Ressource : {item.data.confirmation.resource}
-                      </p>
-                      <p>
-                        Données au : {new Date(
-                          item.data.confirmation.preview.data_as_of
-                        ).toLocaleString("fr-FR")}
-                      </p>
-                      <p>
-                        Dernière valeur : {item.data.confirmation.preview.latest_value}
-                        {" "}{item.data.confirmation.preview.unit}
-                        {" · "}Seuil : {item.data.confirmation.preview.threshold_value}
-                        {" "}{item.data.confirmation.preview.unit}
-                      </p>
-                      <p>{item.data.confirmation.preview.interpretation}</p>
-                      <p>
-                        Cette prévisualisation utilise les mesures capturées
-                        au moment de la demande.
-                        Confirmer enregistre l’analyse, sans créer de proposition.
-                      </p>
-                      <p>
-                        Confirmation possible jusqu’au : {new Date(
-                          item.data.confirmation.expires_at
-                        ).toLocaleString("fr-FR")}
-                      </p>
-                      {!item.resolution ? (
-                        <div className="workflow-actions">
-                          <button disabled={busy}
-                            onClick={() => decideConfirmation(index, "confirm")}>
-                            Confirmer l’enregistrement
-                          </button>
-                          <button className="secondary" disabled={busy}
-                            onClick={() => decideConfirmation(index, "cancel")}>
-                            Annuler
-                          </button>
-                        </div>
-                      ) : (
-                        <p className="analysis-id" role="status">
-                          {item.resolution.status === "confirmed"
-                            ? `Analyse enregistrée : ${item.resolution.analysis_id}`
-                            : "Demande annulée : aucune analyse enregistrée."}
-                        </p>
-                      )}
-                      {item.confirmationError && (
-                        <p className="error" role="alert">{item.confirmationError}</p>
-                      )}
-                      {item.decisionTraceId && (
-                        <p className="analysis-id">
-                          Trace de la décision : {item.decisionTraceId}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  {item.data.analysis_id && (
-                    <p className="analysis-id">Analyse : {item.data.analysis_id}</p>
-                  )}
-                  {item.data.suggested_proposal && (
-                    <div className="notice">
-                      <p>Suggestion : {item.data.suggested_proposal.title}</p>
-                      <p>
-                        Pour créer la proposition, ouvrez cette analyse par son ID
-                        dans la page Analyses.
-                      </p>
-                    </div>
-                  )}
-                  {item.data.limitations?.length > 0 && (
-                    <ul>{item.data.limitations.map(text => <li key={text}>{text}</li>)}</ul>
-                  )}
-
-                  {item.data.sources?.length > 0 && (
-                    <details>
-                      <summary>Sources utilisées ({item.data.sources.length})</summary>
-                      <div className="table-wrap">
-                        <table>
-                          <thead><tr>
-                            <th>Date</th><th>Valeur</th><th>Source</th><th>ID mesure</th>
-                          </tr></thead>
-                          <tbody>
-                            {item.data.sources.map(source => (
-                              <tr key={source.reading_id}>
-                                <td>{new Date(source.measured_at).toLocaleString("fr-FR")}</td>
-                                <td>{Number(source.value).toLocaleString("fr-FR")} {source.unit}</td>
-                                <td>{source.data_source}</td>
-                                <td className="analysis-id">{source.reading_id}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </details>
-                  )}
-                </>
-              )}
-
-              <details>
-                <summary>Traçabilité de la demande</summary>
-                <div className="analysis-id">
-                  <p>HTTP : {item.status || "Réponse HTTP indisponible"}</p>
-                  <p>Trace ID : {item.traceId || "Indisponible"}</p>
-                  <p>Gate : {item.data?.gate_version || item.gateVersion || "Non communiqué"}</p>
-                  {item.reason && <p>Motif : {item.reason}</p>}
-                  {item.data && (
-                    <>
-                      <p>Intent : {item.data.intent}</p>
-                      <p>Mode : {item.data.mode}</p>
-                      <p>Statut LLM : {item.data.llm_status || "Non sollicité"}</p>
-                      {item.data.llm_model && <p>Modèle : {item.data.llm_model}</p>}
-                      {item.data.llm_reason && <p>Motif du secours : {item.data.llm_reason}</p>}
-                      {item.data.llm_call_id && <p>Appel LLM : {item.data.llm_call_id}</p>}
-                      <p>LLM utilisé : {item.data.llm_used ? "Oui" : "Non"}</p>
-                    </>
-                  )}
-                </div>
-              </details>
-            </article>
-          ))}
-        </div>
-      </section>
+  return <section className="assistant-shell">
+    <div className="assistant-toolbar"><div className="assistant-identity"><span className="assistant-avatar"><Icon name="chat" size={22} /></span><div><strong>Votre assistant AegisAI</strong><p>Consommations & analyses</p></div></div><button type="button" className="secondary compact-button" disabled={busy} onClick={newConversation}><Icon name="plus" size={17} /> Nouvelle conversation</button></div>
+    <div className="conversation" role="log" aria-label="Conversation avec l’assistant" aria-live="polite" aria-relevant="additions text">
+      {!history.length && <div className="chat-welcome"><span className="chat-welcome-mark"><Icon name="chat" size={34} /></span><span className="eyebrow">UN PEU DE CLARTÉ DANS VOS CONSOMMATIONS</span><h2>Bonjour, comment puis-je <br />vous aider ?</h2><p>Consultez un compteur, préparez une analyse ou demandez une explication.</p><div className="starter-grid">{[
+        ["drop", "Ma consommation d’eau", "Quelle est ma consommation d’eau ?"],
+        ["bolt", "Ma consommation électrique", "Quelle est ma consommation d’énergie ?"],
+        ["chat", "Découvrir l’assistant", "Que peux-tu faire ?"],
+      ].map(([icon, title, text]) => <button key={title} className="starter" disabled={busy} onClick={() => { setMessage(text); input.current?.focus(); }}><Icon name={icon} /><span>{title}</span><Icon name="arrow" size={16} /></button>)}</div></div>}
+      {history.map(item => {
+        const pending = item.data?.confirmation;
+        const deadlinePassed = pending && new Date(pending.expires_at).getTime() <= clock;
+        return <article className="exchange" key={item.id}>
+          <div className="user-bubble"><span className="sr-only">Vous : </span>{item.question}</div>
+          <div className="assistant-reply"><span className="reply-avatar" aria-hidden="true">A</span><div className="reply-body">
+            <span className="reply-name">AegisAI</span>
+            {item.pending ? <p className="thinking">Traitement de votre demande<span aria-hidden="true">…</span></p> : item.error ? <Message danger>{item.error}</Message> : <>
+              <p className="answer-text">{item.data?.answer}</p>
+              {item.data?.available_sensors?.length > 0 && <div className="choice-list">{item.data.available_sensors.map(sensor => <button className="secondary" key={`${sensor.resource}-${sensor.sensor_id}`} disabled={busy} onClick={() => { setSelection(sensor); setMessage(item.question); input.current?.focus(); }}><Icon name={resourceInfo(sensor.resource).icon} size={17} />{resourceInfo(sensor.resource).label} · {sensor.sensor_id}</button>)}</div>}
+              {pending && <div className="confirmation-card"><div className="confirmation-title"><Icon name="shield" /><strong>Vérifiez avant d’enregistrer</strong></div><p>{resourceInfo(pending.resource).label} · <strong>{pending.sensor_id}</strong></p><div className="confirmation-metrics"><div><span>Dernière valeur</span><strong>{number(pending.preview.latest_value)} {pending.preview.unit}</strong></div><div><span>Seuil de la règle</span><strong>{number(pending.preview.threshold_value)} {pending.preview.unit}</strong></div></div><p>{pending.preview.interpretation}</p><p className="subtle">Données du {date(pending.preview.data_as_of)}. Confirmer enregistre cette analyse ; aucune tâche d’inspection n’est créée.</p>
+                {item.resolution ? <div className="resolution" role="status"><Icon name="check" size={17} />{item.resolution.status === "confirmed" ? "Analyse enregistrée." : "Demande annulée, analyse non enregistrée."}</div> : <><p className="subtle">{deadlinePassed ? "Cette prévisualisation a expiré. Demandez une nouvelle analyse." : `À confirmer avant le ${date(pending.expires_at)}.`}</p><div className="button-row"><button disabled={busy || deadlinePassed} onClick={() => decide(item, "confirm")}><Icon name="check" size={17} /> Confirmer l’enregistrement</button><button className="secondary" disabled={busy || deadlinePassed} onClick={() => decide(item, "cancel")}>Annuler</button></div></>}
+                {item.resolution?.status === "confirmed" && <button className="text-button" disabled={busy} onClick={() => { setSelection({ analysis_id: item.resolution.analysis_id }); setMessage("Explique cette analyse"); input.current?.focus(); }}>Comprendre cette analyse <Icon name="arrow" size={16} /></button>}
+                {item.resolution?.status === "confirmed" && pending.preview.suggested_proposal && <div className="inspection-suggestion"><p><strong>Suggestion :</strong> {pending.preview.suggested_proposal.title}</p>{item.proposal ? <button className="secondary" disabled={busy} onClick={onActions}>Consulter la proposition dans Mes actions <Icon name="arrow" size={16} /></button> : <button className="secondary" disabled={busy} onClick={() => prepareProposal(item)}>Préparer une proposition d’inspection</button>}<p className="subtle">La proposition devra être approuvée avant la création d’une tâche.</p>{item.proposalError && <Message danger>{item.proposalError}</Message>}</div>}
+                {item.confirmationError && <Message danger>{item.confirmationError}</Message>}
+              </div>}
+              {item.data?.limitations?.length > 0 && <details className="reply-details"><summary>Limites de cette analyse</summary><ul>{item.data.limitations.map(text => <li key={text}>{text}</li>)}</ul></details>}
+              {item.data?.sources?.length > 0 && <details className="reply-details"><summary>{item.data.sources.length} source{item.data.sources.length > 1 ? "s" : ""} utilisée{item.data.sources.length > 1 ? "s" : ""}</summary><div className="source-list">{item.data.sources.map(source => <div key={source.reading_id}><strong>{number(source.value)} {source.unit}</strong><span>{date(source.measured_at)}</span><small>{source.data_source}</small></div>)}</div></details>}
+              {item.data?.llm_status === "fallback" && <p className="subtle">Réponse de secours basée sur vos données.</p>}
+            </>}
+            {(item.traceId || item.decisionTraceId) && <details className="reply-details technical"><summary>Références de la demande</summary>{item.traceId && <p>Demande : <code>{item.traceId}</code></p>}{item.decisionTraceId && <p>Décision : <code>{item.decisionTraceId}</code></p>}</details>}
+          </div></div>
+        </article>;
+      })}
+      <div ref={bottom} />
     </div>
-  );
+    <div className="composer-area">{problem && <Message danger>{problem}</Message>}{expired && <Message danger>Cette conversation a expiré. Ouvrez une nouvelle conversation pour continuer.</Message>}
+      <div className="composer-context"><label htmlFor="chat-sensor">Compteur</label><select id="chat-sensor" disabled={busy} value={selection?.sensor_id ? JSON.stringify([selection.resource, selection.sensor_id]) : ""} onChange={e => setSelection(sensors.find(sensor => JSON.stringify([sensor.resource, sensor.sensor_id]) === e.target.value) || null)}><option value="">Automatique · selon votre demande</option>{sensors.map(sensor => <option key={`${sensor.resource}-${sensor.sensor_id}`} value={JSON.stringify([sensor.resource, sensor.sensor_id])}>{resourceInfo(sensor.resource).label} · {sensor.sensor_id}</option>)}</select>{selection?.analysis_id && <span className="soft-tag">Analyse sélectionnée</span>}</div>
+      <form className="composer" onSubmit={send}><label className="sr-only" htmlFor="chat-message">Votre message</label><textarea id="chat-message" ref={input} rows={2} maxLength={1000} value={message} disabled={busy || expired} placeholder="Posez une question sur vos consommations…" onChange={e => setMessage(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); e.currentTarget.form.requestSubmit(); } }} /><button className="send-button" aria-label="Envoyer le message" disabled={busy || expired || !message.trim()}><Icon name="send" size={21} /></button></form>
+      <div className="composer-foot"><span>Les opérations nécessitent votre confirmation manuelle.</span><span>{message.length}/1000</span></div><p className="local-history-note">Affichage conservé pendant cette session. Une nouvelle conversation ne supprime ni les analyses ni les demandes déjà préparées.</p>
+    </div>
+  </section>;
 }
