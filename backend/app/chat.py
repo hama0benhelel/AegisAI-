@@ -9,7 +9,8 @@ from app.agents import get_analysis
 from app.chat_confirmations import prepare_analysis
 from app.auth import current_user
 from app.db import connect, set_tenant
-from app.intent_gate import GATE_VERSION, classify
+from app.semantic_router import ROUTER_VERSION as GATE_VERSION, resolve_message
+from app.period_readings import daily_readings
 from app.llm import render_with_llm
 
 router = APIRouter(tags=["Chatbot"])
@@ -47,8 +48,11 @@ def chat(
     request: Request,
     user=Depends(current_user),
 ):
-    gate = classify(body.message)
+    gate = resolve_message(body.message, request, user)
     intent = gate["intent"]
+
+    if gate["decision"] == "clarify":
+        return clarify(request, intent or "q_and_a", gate["clarification"])
 
     if gate["decision"] == "reject":
         request.state.audit_event_type = (
@@ -89,6 +93,13 @@ def chat(
             intent, replies[dialogue_act], dialogue_act=dialogue_act
         )
 
+    if body.resource and gate.get("resource_hint") and body.resource != gate["resource_hint"]:
+        return clarify(
+            request, intent,
+            "Le compteur sélectionné et la ressource demandée ne correspondent pas. "
+            "Sélectionnez le bon compteur ou repassez en sélection automatique.",
+        )
+
     if intent == "anomaly_follow_up":
         if body.analysis_id is None:
             return clarify(
@@ -121,7 +132,7 @@ def chat(
 
     selected, choices = resolve_sensor(
         user,
-        sensor_id=body.sensor_id,
+        sensor_id=body.sensor_id or gate.get("sensor_hint"),
         resource=body.resource or gate.get("resource_hint"),
     )
     if selected is None:
@@ -138,6 +149,14 @@ def chat(
     })
 
     if intent == "q_and_a":
+        if gate.get("period") in {"today", "yesterday"}:
+            daily = daily_readings(user, body.sensor_id, body.resource, gate["period"])
+            text = daily.pop("answer")
+            sources = daily.pop("sources")
+            payload = answer(intent, text, sources=sources, **daily)
+            # No generation when the requested day contains no measurements.
+            return render_with_llm(request, user, payload) if sources else payload
+
         with connect() as conn:
             set_tenant(conn, user["tenant_id"])
             reading = conn.execute(

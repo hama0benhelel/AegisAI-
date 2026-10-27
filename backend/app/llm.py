@@ -52,7 +52,7 @@ def fallback(payload, reason, call_id=None):
     }
 
 
-def reserve_call(request, user, context):
+def reserve_call(request, user, context, *, prompt_version=PROMPT_VERSION):
     with connect() as conn:
         set_tenant(conn, user["tenant_id"])
 
@@ -91,7 +91,7 @@ def reserve_call(request, user, context):
             (
                 user["tenant_id"], user["id"],
                 UUID(request.state.trace_id), MODEL,
-                context["intent"], PROMPT_VERSION, Jsonb(context),
+                context["intent"], prompt_version, Jsonb(context),
             ),
         ).fetchone()
         return row["id"]

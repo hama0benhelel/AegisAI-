@@ -1,3 +1,4 @@
+from app.semantic_router import resolve_message
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -96,6 +97,13 @@ def send_message(
         gate = classify(body.message)
         text = normalize(body.message).rstrip(" .?!")
         follow_up = None
+        local_follow_up = (
+            gate["decision"] == "reject"
+            and gate["reason"] == "out_of_scope_or_unrecognized"
+            and text in FOLLOW_UPS
+        )
+        if not local_follow_up and text not in {"oui", "yes", "confirme", "je confirme"}:
+            gate = resolve_message(body.message, request, user)
 
         # Only exact follow-ups can reuse context.
         # Security rejections are never overridden.
@@ -118,7 +126,7 @@ def send_message(
             }
 
         resource = body.resource or gate.get("resource_hint")
-        sensor_id = body.sensor_id
+        sensor_id = body.sensor_id or gate.get("sensor_hint")
         analysis_id = body.analysis_id
         confirmation_id = context["confirmation_id"]
 
@@ -128,11 +136,18 @@ def send_message(
             or (sensor_id is not None and sensor_id != context["sensor_id"])
         )
 
-        if changed:
-            confirmation_id = None
-        else:
+        if not changed:
             resource = resource or context["resource"]
             sensor_id = sensor_id or context["sensor_id"]
+
+        period_changed = (
+            gate["decision"] == "allow"
+            and not gate.get("dialogue_act")
+            and gate.get("period", "latest") != context["period"]
+        )
+        if changed or period_changed:
+            confirmation_id = None
+        else:
             analysis_id = analysis_id or context["analysis_id"]
 
         # Resolve only a confirmation owned by this user and tenant.
@@ -151,6 +166,16 @@ def send_message(
 
         if follow_up:
             intent, canonical_message = follow_up
+            if intent == "recommendation_request" and context["period"] != "latest":
+                return {
+                    **clarify(
+                        request, intent,
+                        "La dernière demande concernait une journée précise. "
+                        "L’analyse d’anomalie de cette journée n’est pas disponible. "
+                        "Demandez explicitement une analyse des dernières mesures.",
+                    ),
+                    "conversation_id": str(conversation_id),
+                }
             if intent == "recommendation_request" and not sensor_id:
                 return {
                     **clarify(
@@ -185,8 +210,8 @@ def send_message(
         payload = chat(body=effective, request=request, user=user)
 
         if not payload.get("dialogue_act") and not payload.get("needs_clarification"):
-            new_sensor = sensor_id
-            new_resource = resource
+            new_sensor = payload.get("sensor_id") or sensor_id
+            new_resource = payload.get("resource") or resource
             new_analysis = analysis_id
             new_confirmation = confirmation_id
 
@@ -224,13 +249,14 @@ def send_message(
                 """
                 UPDATE bws_ai.chat_conversations
                 SET resource = %s, sensor_id = %s,
-                    analysis_id = %s, confirmation_id = %s,
+                    analysis_id = %s, confirmation_id = %s, period = %s,
                     updated_at = clock_timestamp(),
                     expires_at = clock_timestamp() + interval '30 minutes'
                 WHERE id = %s AND tenant_id = %s AND user_id = %s
                 """,
                 (
                     new_resource, new_sensor, new_analysis, new_confirmation,
+                    payload.get("period", {}).get("kind", "latest"),
                     conversation_id, user["tenant_id"], user["id"],
                 ),
             )
