@@ -34,6 +34,7 @@ services:
     build: ./backend
     environment:
       JWT_SECRET: ${JWT_SECRET:?Missing JWT_SECRET}
+      SECURITY_DB_PASSWORD: ${SECURITY_DB_PASSWORD:?Missing SECURITY_DB_PASSWORD}
       GROQ_API_KEY: ${GROQ_API_KEY:?Missing GROQ_API_KEY}
       LLM_ENABLED: ${LLM_ENABLED:-false}
       APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Missing APP_DB_PASSWORD}

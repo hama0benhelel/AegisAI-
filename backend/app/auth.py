@@ -136,6 +136,17 @@ def current_user(
         "tenant_id": str(user["tenant_id"]),
     }
 
+    # Security staff use only explicit supervision endpoints.
+    if user["role"] == "security_admin":
+        route = getattr(request.scope.get("route"), "path", None)
+        allowed = {
+            "/auth/me",
+            "/bws/security/audit",
+            "/bws/security/llm-calls",
+        }
+        if route not in allowed:
+            raise HTTPException(403, "Compte réservé à la supervision sécurité")
+
     # The role is read from the DB, not trusted from a client field.
     return user
 
