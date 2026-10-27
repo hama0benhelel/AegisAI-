@@ -74,3 +74,7 @@ app.include_router(chat_confirmations_router)
 
 from app.bws_security import router as bws_security_router
 app.include_router(bws_security_router)
+
+
+from app.conversations import router as conversations_router
+app.include_router(conversations_router)
