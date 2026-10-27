@@ -20,7 +20,7 @@ class ConfirmationDecision(BaseModel):
 
 def prepare_analysis(resource, sensor_id, request, user):
     # This function is also called directly from the chat route.
-    if user["role"] not in {"operator", "tenant_admin"}:
+    if user["role"] not in {"operator", "tenant_admin", "client"}:
         raise HTTPException(403, "Permissions insuffisantes")
 
     with connect() as conn:
@@ -78,7 +78,7 @@ def decide_confirmation(
     confirmation_id: UUID,
     body: ConfirmationDecision,
     request: Request,
-    user=Depends(require_roles("operator", "tenant_admin")),
+    user=Depends(require_roles("operator", "tenant_admin", "client")),
 ):
     with connect() as conn:
         set_tenant(conn, user["tenant_id"])

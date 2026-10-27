@@ -91,7 +91,7 @@ def chat(
     if intent == "recommendation_request":
         # Direct Python calls don't execute FastAPI dependencies.
         # Explicit authorization is required before invoking the agent.
-        if user["role"] not in {"operator", "tenant_admin"}:
+        if user["role"] not in {"operator", "tenant_admin", "client"}:
             raise HTTPException(403, "Permissions insuffisantes")
 
     if body.sensor_id is None or body.resource is None:
