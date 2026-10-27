@@ -1,0 +1,76 @@
+services:
+  backend:
+    environment:
+      WATER_AGENT_URL: https://water-agent:8443
+      ENERGY_AGENT_URL: https://energy-agent:8443
+      AGENT_CA_FILE: /run/agent-tls/ca.pem
+      AGENT_CERT_FILE: /run/agent-tls/cert.pem
+      AGENT_KEY_FILE: /run/agent-tls/key.pem
+    volumes:
+      - /home/bws/.local/share/aegisai-pki/backend:/run/agent-tls:ro
+    networks:
+      default: {}
+      agents_private: {}
+
+  water-agent:
+    image: aegisai-water-agent:dev
+    build:
+      context: .
+      dockerfile: agents/water/Dockerfile
+    environment:
+      TLS_CERT_FILE: /run/agent-tls/cert.pem
+      TLS_KEY_FILE: /run/agent-tls/key.pem
+      TLS_CA_FILE: /run/agent-tls/ca.pem
+    volumes:
+      - /home/bws/.local/share/aegisai-pki/water:/run/agent-tls:ro
+    networks:
+      agents_private: {}
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    mem_limit: 192m
+    cpus: 0.5
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
+
+  energy-agent:
+    image: aegisai-energy-agent:dev
+    build:
+      context: .
+      dockerfile: agents/energy/Dockerfile
+    environment:
+      TLS_CERT_FILE: /run/agent-tls/cert.pem
+      TLS_KEY_FILE: /run/agent-tls/key.pem
+      TLS_CA_FILE: /run/agent-tls/ca.pem
+    volumes:
+      - /home/bws/.local/share/aegisai-pki/energy:/run/agent-tls:ro
+    networks:
+      agents_private: {}
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    mem_limit: 192m
+    cpus: 0.5
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
+networks:
+  agents_private:
+    internal: true

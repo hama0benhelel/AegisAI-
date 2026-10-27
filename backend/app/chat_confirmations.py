@@ -1,3 +1,5 @@
+from app.energy_client import analyze_energy
+from app.water_client import analyze_water
 from typing import Literal
 from uuid import UUID
 
@@ -44,7 +46,12 @@ def prepare_analysis(resource, sensor_id, request, user):
             raise HTTPException(404, "Aucune série horaire accessible")
 
         # Freeze the result and its sources. No analysis is inserted here.
-        snapshot = analyze(resource, list(reversed(rows)))
+        ordered_rows = list(reversed(rows))
+        snapshot = (
+            analyze_water(ordered_rows, user, request)
+            if resource == "water"
+            else analyze_energy(ordered_rows, user, request)
+        )
 
         pending = conn.execute(
             """
