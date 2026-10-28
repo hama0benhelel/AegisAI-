@@ -1,4 +1,5 @@
 import copy
+import os
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 import json
@@ -48,7 +49,11 @@ class EnergyResponseTests(unittest.TestCase):
             response.status = 200
             response.read.return_value = json.dumps(envelope).encode()
 
-        with patch("app.energy_client.ssl.create_default_context"), \
+        with patch.dict(os.environ, {
+                 "ENERGY_AGENT_URL": "https://energy-agent:8443",
+                 "AGENT_CA_FILE": "test-ca", "AGENT_CERT_FILE": "test-cert",
+                 "AGENT_KEY_FILE": "test-key",
+             }), patch("app.energy_client.ssl.create_default_context"), \
              patch("app.energy_client.build_opener", return_value=opener):
             return analyze_energy(self.rows, self.user, self.request)
 

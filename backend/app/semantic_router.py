@@ -162,7 +162,14 @@ def _resolve(message, request, user):
         usage = data.get("usage") or {}
         if not isinstance(usage, dict):
             usage = {}
-        choice = data["choices"][0]
+        choices = data.get("choices")
+        if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+            raise ValueError("Invalid choices")
+        choice = choices[0]
+        if not isinstance(choice.get("message"), dict):
+            raise ValueError("Invalid message")
+        if not isinstance(choice["message"].get("content"), str):
+            raise ValueError("Invalid content")
         if choice["finish_reason"] != "stop":
             raise ValueError("Incomplete output")
         plan = IntentPlan.model_validate_json(choice["message"]["content"])

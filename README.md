@@ -1,124 +1,131 @@
-# AegisAI — Secure AI Agent Platform for IoT
+# AegisAI — Sécurisation d’un système multi-agents pour l’IoT
 
-Prototype académique de sécurité et de gouvernance pour une plateforme
-d’agents IA appliquée aux consommations IoT, réalisé dans le contexte
-d’un stage en cybersécurité chez Be Wireless Solutions.
+Démonstrateur académique indépendant réalisé dans le contexte d’un stage
+cybersécurité chez Be Wireless Solutions. Clients, capteurs et consommations
+sont synthétiques ; aucune connexion aux systèmes ou équipements de BWS.
 
-Le démonstrateur est indépendant des systèmes de l’entreprise.
-Les organisations, capteurs et mesures sont synthétiques.
+Un client consulte ses consommations d’eau, d’électricité et de gaz dans une
+interface unique. Le chatbot consulte les données autorisées, explique les
+analyses et prépare des opérations que le client valide explicitement.
+Trois services agents distincts communiquent avec le backend par mTLS.
 
-## Fonctionnalités
+## Comptes et responsabilités
 
-- Deux organisations isolées : Client A et Client B.
-- Authentification JWT et mots de passe Argon2id.
-- Rôles viewer, operator et tenant_admin.
-- Isolation API et PostgreSQL Row-Level Security.
-- Analyses eau et énergie par règle déterministe.
-- Assistant à intentions contrôlées utilisant Groq.
-- Confirmation avant enregistrement d’une analyse via le chatbot.
-- Approbation avant création d’une tâche d’inspection.
-- Audit et journal des appels LLM.
-- Supervision Alloy, Loki et Grafana avec alertes.
-- SSH par clé, fail2ban et rotation des logs Docker.
-
-## Stack
-
-| Composant | Technologie |
-|---|---|
-| Backend | FastAPI, Uvicorn, Python |
-| Base de données | PostgreSQL 17 |
-| Interface | React, Vite, Nginx |
-| LLM distant | Groq — openai/gpt-oss-20b |
-| Supervision | Grafana Alloy, Loki, Grafana |
-| Déploiement | Docker Compose, Ubuntu ARM64 |
-
-Les agents utilisent des règles de calcul, pas des modèles ML entraînés.
-Groq reformule des données autorisées préparées par le backend.
-Il ne dispose pas d’accès direct à PostgreSQL ni d’outils d’exécution.
-
-## Comptes de démonstration
-
-| Compte | Organisation | Rôle |
+| Compte de démonstration | Rôle | Accès |
 |---|---|---|
-| viewer.a@example.test | A | viewer |
-| operator.a@example.test | A | operator |
-| admin.a@example.test | A | tenant_admin |
-| admin.b@example.test | B | tenant_admin |
+| client.a@example.test | client | Données et opérations de A |
+| client.b@example.test | client | Données et opérations de B |
+| security.admin@bws.example.test | security_admin | Métadonnées de sécurité inter-tenants, sans données de consommation |
+| soc_admin | Administrateur Grafana | Supervision SOC ; compte distinct de l’application |
 
-Les mots de passe sont configurés localement.
-Un tenant_admin administre uniquement son organisation.
-Grafana utilise un compte SOC distinct : soc_admin.
+Les mots de passe restent locaux. Les anciens rôles viewer, operator et
+tenant_admin sont conservés pour compatibilité et certains tests. Ils ne sont
+pas les comptes du parcours client final. `admin.a` sert notamment à vérifier
+l’isolation des conversations entre deux utilisateurs d’un même tenant.
 
-## Démarrage de la VM déjà préparée
+## Fonctions livrées
 
-Ces commandes supposent que les secrets, migrations et données
-de démonstration sont déjà configurés.
+- JWT HS256, mots de passe Argon2id, utilisateur actif et rôle relus en base.
+- Autorisations API, PostgreSQL RLS forcée et rôles DB spécialisés.
+- Agents eau, énergie et gaz isolés en conteneurs, sans accès DB ni clé Groq.
+- Vérification mTLS, nom du serveur et validation des réponses agents.
+- Simulateur horaire avec six compteurs, insertions idempotentes et droits limités.
+- Chat conversationnel avec contexte serveur privé et clarification des ambiguïtés.
+- Lecture dernière mesure, aujourd’hui ou hier ; sommes journalières déterministes.
+- Conseils généraux sourcés issus d’un catalogue local dont l’empreinte est vérifiée.
+- Analyse prévisualisée puis enregistrée après confirmation personnelle.
+- Proposition approuvée ou refusée, puis création explicite d’une tâche unique.
+- Journal des appels Groq, quotas locaux, validation des sorties et réponses de secours.
+- Audit, collecte Alloy/Loki, dashboards et alertes Grafana.
+- SSH par clé, fail2ban et rotation des logs Docker pour la VM de démonstration.
 
-    cd ~/aegisai
-    sudo docker compose -f compose.yaml -f compose.monitoring.yaml up -d
-    python3 scripts/update_log_targets.py
-    sudo docker compose -f compose.yaml -f compose.monitoring.yaml restart alloy
+## Architecture et stack
 
-Les chemins des logs doivent être actualisés après recréation
-des containers backend ou frontend.
+React/Vite → Nginx → FastAPI → PostgreSQL.
+Le backend appelle les agents eau/énergie/gaz par HTTPS avec certificat client.
+Groq (`openai/gpt-oss-20b`) sert au routage sémantique et à certaines reformulations.
+Alloy collecte les logs ; Loki les stocke ; Grafana évalue les alertes.
 
-Vérification :
+Le LLM ne possède ni connexion PostgreSQL ni outil d’exécution. Le message brut
+peut être envoyé au routeur sémantique quand les règles locales ne suffisent pas.
+La génération de réponse reçoit un contexte structuré déjà autorisé.
 
-    curl -fsS http://127.0.0.1:8080/api/health/ready
-    curl -fsS http://127.0.0.1:3000/api/health
-    curl -fsS http://127.0.0.1:3100/ready
+## Redémarrer la VM déjà préparée
 
-Loki peut retourner temporairement 503 pendant son démarrage.
+Ces commandes supposent les migrations 001 à 016 appliquées, les secrets locaux,
+comptes, données et certificats déjà configurés. Ce n’est pas un installateur vierge.
+Les chemins PKI de Compose correspondent à `/home/bws/.local/share/aegisai-pki`.
 
-## Accès depuis le Mac
+```bash
+cd ~/aegisai
+sudo -v
+bash scripts/aegis.sh config --quiet
+bash scripts/aegis.sh up -d
+python3 scripts/update_log_targets.py
+bash scripts/aegis.sh restart alloy
+bash scripts/aegis.sh ps
+curl --max-time 10 -fsS http://127.0.0.1:8080/api/health/ready
+curl --max-time 5 -fsS http://127.0.0.1:3000/api/health
+curl --max-time 5 -fsS http://127.0.0.1:3100/ready
+```
 
-    ssh -i ~/.ssh/aegisai_vm -o IdentitiesOnly=yes -N -L 8080:127.0.0.1:8080 -L 3000:127.0.0.1:3000 bws@192.168.64.19
+Le wrapper utilise les quatre fichiers Compose et fonctionne depuis n’importe
+quel répertoire. Après recréation d’un backend, frontend ou agent, régénérer les
+cibles Alloy et redémarrer Alloy. Loki peut retourner 503 pendant son démarrage.
+L’état Running d’un agent ne remplace pas une probe mTLS.
 
-L’adresse de la VM peut évoluer.
+Depuis le Mac, dans une fenêtre dédiée :
 
-- Application : http://localhost:8080
-- Grafana : http://localhost:3000
+```bash
+ssh -i ~/.ssh/aegisai_vm -o IdentitiesOnly=yes -N \
+  -L 8080:127.0.0.1:8080 -L 3000:127.0.0.1:3000 bws@192.168.64.19
+```
 
-Les ports applicatifs sont publiés sur localhost dans la VM.
-PostgreSQL ne possède pas de port publié sur l’hôte.
+Application : http://localhost:8080 ; Grafana : http://localhost:3000.
+Adapter l’adresse si la VM change d’IP. Les ports applicatifs sont publiés sur
+localhost ; PostgreSQL et les agents n’ont pas de port publié sur l’hôte.
 
-## Secrets
+## Validation
 
-.env reste local avec permissions restrictives.
-Ne pas versionner les clés API, secrets JWT, mots de passe,
-clés SSH privées ou sauvegardes contenant des données sensibles.
+```bash
+# Tests avec réseau/DB simulés ; pas d’appel Groq réel.
+bash scripts/check_local_controls.sh
 
-## Tests principaux
+# Contrôles SQL en transaction read-only sur la base de démonstration.
+bash scripts/aegis.sh exec -T db \
+  psql -X -U postgres -d aegisai -v ON_ERROR_STOP=1 \
+  < tests/check_database_security.sql
+```
 
-Depuis Ubuntu :
+Scénarios API, prérequis et preuves : [docs/security/validation_matrix.md](docs/security/validation_matrix.md).
+Les tests `check_*.py` ne sont pas tous des tests isolés : certains créent des
+analyses/tâches, demandent des comptes historiques ou nécessitent un quota Groq.
+Ne pas les lancer tous par découverte automatique.
+Les tests d’alertes envoient des instructions hostiles contrôlées ou arrêtent
+provisoirement gas-agent : les exécuter séparément dans le lab.
 
-    python3 tests/check_chat_confirmation.py
-    python3 tests/check_llm_boundaries.py
-    python3 tests/check_llm_journal.py
+## Secrets et limites
 
-Tests isolés sans appel Groq :
+Ne pas publier `.env`, clés privées, certificats privés ou dumps. Le fichier
+`.env.example` décrit uniquement les variables, sans secret réel.
 
-    sudo docker compose exec -T backend python - < tests/test_llm_controls.py
+Les agents appliquent une règle déterministe non calibrée : ce ne sont pas des
+modèles ML entraînés. Aucun diagnostic de fuite, cause racine, pourcentage de
+fiabilité, ROI ou commande physique n’est garanti. Une tâche créée est une ligne
+DB, pas une inspection réalisée. Le client peut être auteur et approbateur.
+Les regex et tests d’injection ne prouvent pas une protection universelle.
+La validation des références LLM ne garantit pas toute assertion générée.
+Le free tier Groq peut être limité ou indisponible.
 
-check_chat.py attend LLM_ENABLED=false.
-check_llm_boundaries.py nécessite un LLM actif et une quota disponible.
-
-D’autres tests couvrent JWT, RBAC, isolation, agents et workflow.
-Les résultats d’évaluation sont conservés dans docs/evaluation/.
-
-## Limites
-
-- Trois intentions actives sur les six de la taxonomie.
-- Pas de cause racine confirmée ni de score de confiance calibré.
-- Références valides et JSON correct ne garantissent pas toute assertion.
-- Pas de commandes envoyées aux équipements.
-- Une tâche enregistrée ne signifie pas inspection réalisée.
-- Pas de séparation obligatoire entre auteur et approbateur.
-- Installation sur une VM vierge non validée de bout en bout.
-- Pas de déclaration de conformité GDPR ou IEC 62443.
+Pas de validation complète d’installation sur VM vierge, de TLS 1.3 bout en bout,
+de chiffrement AES-256/LUKS démontré ou de certification GDPR/IEC 62443.
 
 ## Documentation
 
-- docs/architecture.md : composants et flux.
-- docs/security_layer.md : contrôles, preuves et limites.
-- docs/evaluation/ : rapports d’évaluation.
+- [Architecture](docs/architecture.md)
+- [Contrôles et limites de sécurité](docs/security_layer.md)
+- [Exploitation et livraison](docs/operations.md)
+- [Validation sécurité](docs/security/validation_matrix.md)
+- [Runbook des alertes](docs/security/monitoring_alert_runbook.md)
+- [Menaces sur les conseils](docs/security/recommendation_threat_model.md)
+- [Évaluations et rapports](docs/evaluation/)

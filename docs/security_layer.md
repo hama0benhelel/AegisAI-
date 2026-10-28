@@ -1,300 +1,99 @@
-# Couche de sécurité AegisAI — contrôles et validation
+# Couche de sécurité — état et limites
 
-## Périmètre
+État documentaire : 28 octobre 2026. Référence des scénarios et preuves :
+[matrice de validation](security/validation_matrix.md).
 
-Prototype indépendant sur données IoT synthétiques, inspiré des
-exigences de sécurité et de gouvernance de Be Wireless Solutions.
+## Modèle de confiance
 
-Le système traite notamment :
-- accès non authentifié ;
-- JWT falsifié ou expiré ;
-- abus de permissions ;
-- accès aux ressources d’un autre tenant ;
-- contournement de confirmation ou d’approbation ;
-- requêtes répétées ou concurrentes ;
-- instructions suspectes et demandes hors périmètre ;
-- défaillances et sorties invalides du LLM ;
-- consommation excessive d’appels LLM ;
-- interruption de collecte des logs ;
-- accès SSH et tentatives d’authentification.
+La menace étudiée est un utilisateur malveillant ou une réponse externe non
+fiable dans un démonstrateur multi-tenant. Le backend vérifie les permissions
+avant accès métier ; un plan LLM ne constitue jamais une autorisation.
+L’hôte, la configuration du backend, la CA et les superusers DB restent des
+composants de confiance. Le backend détient aussi le secret du lecteur sécurité :
+la séparation DB limite les usages normaux, pas une compromission complète du backend.
 
-Les contrôles applicatifs ne garantissent pas la protection après
-compromission du serveur ou d’un compte PostgreSQL superuser.
+## Contrôles
 
-## Contrôles et preuves
-
-| Contrôle | Vérifications réalisées | Limites |
+| Frontière | Contrôle | Limite à présenter |
 |---|---|---|
-| Authentification JWT | Token absent, falsifié, expiré, audience incorrecte et expiration absente refusés | Pas de révocation individuelle ni refresh token |
-| Mots de passe | Hashes Argon2id utilisés | Gestion du cycle de vie des comptes limitée |
-| RBAC | Viewer et operator refusés sur endpoints administratifs ; faux X-Role ignoré | Auteur et approbateur peuvent être la même personne |
-| Isolation | RLS SQL et tests API A/B | Tests sur scénarios synthétiques |
-| Rate limiting login | Onzième tentative refusée par HTTP 429 | Mémoire du processus ; utilisateurs derrière Nginx partagent son IP observée |
-| Confirmation chat | Propriétaire, tenant, contenu figé, expiration et concurrence vérifiés | Parcours chatbot uniquement |
-| Workflow | Approbation requise, rejet non exécutable, tâche unique sous concurrence | Création d’un enregistrement, sans commande OT |
-| Intent gate | Corpus d’évaluation et refus via API | Grammaire restrictive et faux rejets possibles |
-| LLM | Appels réels, références, JSON, fallback et absence de retry automatique | Structure correcte ne garantit pas les assertions |
-| Quota LLM | Limites locales et réservation par tenant | Concurrence de quota non testée de bout en bout sur PostgreSQL |
-| Frontière LLM | Demande autorisée journalisée ; demandes refusées sans réservation | Preuve limitée aux scénarios exécutés et au code inspecté |
-| Journal LLM | Accès administrateur limité au tenant ; contenu exclu de l’endpoint | Pas de purge automatique des données PostgreSQL |
-| Supervision | Logs backend/Nginx corrélés par Trace ID | Mise à jour des chemins après recréation nécessaire |
-| Alertes | Déclenchement et retour Normal observés | Notifications externes non configurées |
-| SSH | Connexion par clé réussie, password refusé, logs collectés | Clé privée et passphrase à protéger sur le Mac |
-| Fail2ban | Ban manuel, règle firewall, Unban et collecte vérifiés | Déclenchement automatique après échecs réels non testé |
-| Rotation Docker | Limites vérifiées sur les six containers | Rollover au seuil non forcé pendant les tests |
+| Authentification | JWT HS256 : signature, issuer, audience, iat/exp, utilisateur actif ; Argon2id | Pas de refresh ou révocation individuelle ; durée 15 min |
+| Rôle | Lu en DB, pas depuis un header client | Comptes historiques encore actifs selon la VM |
+| Client A/B | Filtres API et contexte transactionnel sous RLS forcée | Le rôle applicatif peut définir le contexte ; une compromission du backend dépasse cette garantie |
+| Supervision BWS | Allowlist endpoints et rôle DB lecture de colonnes limitées | Métadonnées inter-tenants intentionnellement visibles |
+| Conversation | Tenant + propriétaire, 30 min, verrou NOWAIT | Expiration sans purge physique automatique |
+| Confirmation | Propriétaire, contenu figé, expiration, transaction et verrou | Préparation écrit déjà une demande/audit ; le calcul de prévisualisation a déjà lieu |
+| Proposition/tâche | Approbation et exécution distinctes, unicité/idempotence | Le client peut être auteur et approbateur ; pas de commande physique |
+| Agent réseau | mTLS, noms DNS, URL fixe, redirections/proxy refusés | CA commune, réseau partagé ; pas de révocation/rotation automatisée |
+| Réponse agent | Tenant/trace/sources/calculs/suggestion contrôlés | Cas altérés couverts par mocks ; pas une campagne MITM réelle |
+| Langage | Règles locales puis routeur JSON strict, autorisation indépendante | Pas de garantie universelle anti-injection ; un message inconnu peut atteindre le LLM de routage |
+| Génération Groq | Contexte autorisé, JSON, source_ids, limites, fallback | Des références valides ne prouvent pas chaque assertion |
+| Conseils | Catalogue local revu, hash et schéma contrôlés | Protection suppose empreinte/code non compromis ; pas un RAG documentaire ouvert |
+| Totaux journaliers | Sommes Decimal, couverture et texte déterministes | Données synthétiques, pas une facture ni une mesure temps réel |
+| Quotas Groq | Réservation sérialisée par tenant : 5/min et 100/24 h | Limite d’appels, pas budget monétaire ou limite exacte de tokens |
+| Audit | Métadonnées sans credentials ; opérations critiques atomiques | HTTP best effort ; pas WORM contre superuser |
+| Supervision | Logs corrélés et alertes observées Firing puis Normal | Pas de notifications externes ; collecte indispensable |
+| SSH/fail2ban | Clé SSH, password/root désactivés, ban manuel vérifié | Déclenchement automatique après échecs réels non démontré |
 
-## Confirmation et approbation
+## Identités PostgreSQL
 
-Une demande d’analyse via chatbot prépare une prévisualisation.
-Aucune analyse n’est enregistrée avant confirmation.
+- `aegisai_app` : accès applicatif sous RLS, pas de superuser/BYPASSRLS.
+- `aegisai_security_reader` : métadonnées audit/LLM, défaut read-only ; aucune
+  lecture de consommation, input_context ou output_text.
+- `aegisai_simulator` : lecture/insertion des tuples synthétiques autorisés ;
+  pas d’UPDATE/DELETE, ni lecture users/audit.
 
-La confirmation :
-- appartient au même utilisateur et tenant ;
-- expire après 10 minutes ;
-- refuse les champs permettant de modifier le contenu ;
-- enregistre le résultat figé de la prévisualisation ;
-- crée une seule analyse en cas de confirmations concurrentes.
+L’application ne peut pas UPDATE/DELETE audit_events. Les rôles superuser restent
+capables de modifier les journaux. Les tests API A/B ne remplacent pas les tests
+SQL sous rôle applicatif. `tests/check_database_security.sql` permet une revue
+read-only des privilèges et une vérification RLS sur la base préparée.
 
-Les tests ont vérifié :
-- refus sans token ;
-- refus du viewer ;
-- refus d’un autre utilisateur du même tenant ;
-- refus d’un autre tenant ;
-- refus de contenu supplémentaire ;
-- confirmation concurrente et répétée sans duplication ;
-- annulation puis confirmation refusée ;
-- expiration sans création d’analyse ;
-- événements métier enregistrés une seule fois.
+## Appels LLM et données transmises
 
-La confirmation personnelle d’une demande ne remplace pas
-l’approbation d’une proposition par un administrateur.
+Distinguer routage sémantique et génération :
 
-## Évaluation du gate
+- Routage : message courant brut, pas d’historique client arbitraire ni contexte
+  DB ; journal local digest/longueur et plan obtenu.
+- Génération : faits et sources autorisés, texte de référence et limites.
+- Conseils et totaux journaliers : pas de génération LLM ; leur routage peut en
+  utiliser un si le message n’est pas reconnu localement.
 
-Sur le corpus de développement de 34 cas :
+Les réponses fournisseur malformées sont traitées comme invalid_output :
+clarification ou réponse de secours, sans retry. Une réservation est comptée
+même en cas d’échec. Les tokens inconnus restent NULL ; un appel interrompu peut
+rester started. Les interfaces BWS excluent les contenus sensibles du journal.
+Ni le catalogue ni la DB ne sont accessibles directement au fournisseur.
 
-| Mesure | V1 | V2 |
-|---|---|---|
-| Demandes légitimes correctement routées | 7/12 | 11/12 |
-| Hors périmètre bloquées | 3/6 | 6/6 |
-| Fonctions désactivées bloquées | 4/4 | 4/4 |
-| Messages malveillants bloqués | 7/12 | 12/12 |
+## Preuves et portée
 
-En V2, 7 des 12 messages malveillants sont explicitement marqués suspects.
-Les autres sont rejetés pour d’autres motifs.
-Blocage et détection explicite ne constituent pas la même mesure.
+Les rapports datés conservent les tests API conseils et les cycles réels
+injection/panne gaz. Les contrôles mTLS ont été exécutés contre les services du
+lab. Les réponses altérées, délais réseau et erreurs fournisseur sont testés
+avec mocks ; leur réussite ne démontre pas une attaque réseau en conditions réelles.
+Les tests de JWT invalides signés utilisent une fixture administrateur locale.
 
-Ce corpus a servi au développement et ne prouve pas un taux général
-de détection sur des attaques inédites.
+Les chiffres V1/V2 dans docs/evaluation sont des évaluations historiques du gate
+sur corpus de développement. Ils ne mesurent pas la performance globale du
+routeur hybride courant ni une détection générale sur attaques inédites.
 
-L’évaluation sur de nouvelles formulations a également observé
-des demandes légitimes rejetées à tort.
-Les fichiers dans docs/evaluation/ conservent les résultats détaillés.
+## Conservation et exploitation
 
-## Intégration Groq et contrôles LLM
+Logs Docker : 10m × 3 par conteneur ; Loki : 72 h configurées. Audit, sorties LLM,
+conversations et analyses PostgreSQL n’ont pas de purge automatisée. Ne pas
+annoncer de conservation illimitée garantie, de minimisation complète ou de droit
+à l’effacement implémenté. Ne pas committer dumps, credentials ou clés privées.
 
-Le gate, l’authentification et l’accès tenant précèdent la récupération
-du contexte et la réservation d’un appel fournisseur.
+Les ports sont limités à localhost et accessibles par tunnel SSH sur la VM.
+Nginx ne sert pas HTTPS dans ce lab ; les liens DB internes ne sont pas TLS.
+Le mTLS inter-agents ne signifie pas TLS 1.3 démontré de bout en bout.
 
-Le LLM reçoit un contexte structuré, sans message utilisateur brut
-ni historique de conversation dans l’intégration actuelle.
+## Fonctionnalités hors périmètre livré
 
-Il n’a pas d’accès direct à PostgreSQL et aucun outil d’exécution
-ne lui est fourni.
+- Apprentissage ML industriel et scores de confiance calibrés.
+- Cause racine validée, plans avec dates/responsables, ROI/payback.
+- Commande directe des équipements ou exécution autonome d’un plan.
+- Upload intelligent, RAG ouvert et base d’expertise propriétaire BWS.
+- Facturation et simulateur commercial de tokens.
+- Chiffrement applicatif AES-256, LUKS et conformité GDPR/IEC 62443 démontrés.
+- Déploiement vierge entièrement automatisé et validé.
 
-Dix tests isolés ont vérifié :
-- utilisation d’une réponse valide avec ses sources ;
-- absence d’appel quand le LLM est désactivé ;
-- absence d’appel pour une demande de confirmation ;
-- fallback lorsque la quota locale est atteinte ;
-- fallback sur HTTP 429 sans retry ;
-- fallback sur timeout ;
-- rejet d’une référence de source inconnue ;
-- rejet d’une réponse tronquée ;
-- rejet de JSON invalide ;
-- refus de réservation lorsque les limites sont atteintes.
-
-Ces tests remplacent les appels réseau et les accès DB par des mocks.
-
-Les tests de frontière sur l’API réelle ont observé :
-- un appel autorisé présent dans llm_calls ;
-- aucune réservation pour les requêtes sans authentification ;
-- aucune réservation pour les messages suspects ou hors périmètre ;
-- aucune réservation pour les opérations désactivées ;
-- aucune réservation pour tenant forgé ou ressource d’un autre tenant ;
-- aucune réservation pour analyse demandée par viewer ;
-- clarification sans LLM lorsque le compteur manque ;
-- rejet du message trop long ;
-- création déterministe d’une analyse sans LLM.
-
-Dans le code actuel, l’appel fournisseur intervient après une
-réservation réussie. Ces résultats ne prouvent pas une prévention
-universelle des injections de prompt.
-
-## Évaluation du contenu des réponses
-
-Quatre cas synthétiques ont été exécutés, avec une réponse LLM
-obtenue pour chacun :
-- lecture eau Client A ;
-- lecture énergie Client A ;
-- explication d’une anomalie eau Client A ;
-- explication d’une consommation normale Client B.
-
-Les contrôles techniques exécutés ont validé la présence des sources
-et les références retournées.
-
-La revue a relevé une ambiguïté : « 240.000 kWh » dans une réponse
-française. Le prompt grounded-summary-v2 demande une notation française
-sans décimales inutiles.
-
-Deux appels ultérieurs observés ont produit « 240 kWh ».
-Le format des dates et l’indication de timezone peuvent varier.
-
-Cet échantillon ne constitue ni un score de confiance calibré
-ni une garantie de justesse de toutes les réponses.
-
-## Journaux et auditabilité
-
-Les événements métier critiques sont écrits dans la transaction
-de l’opération correspondante.
-
-L’audit HTTP utilise une écriture séparée. Un échec de persistance
-peut être signalé par persisted=false dans les logs.
-
-Le rôle applicatif ne peut ni modifier ni supprimer audit_events.
-Un administrateur PostgreSQL peut toujours modifier la base :
-le journal n’est pas un stockage WORM immuable.
-
-llm_calls conserve la réservation, le contexte, le résultat final,
-le modèle, la version du prompt, la durée et les tokens communiqués.
-
-Un arrêt du processus peut laisser une réservation au statut started.
-Un fallback peut avoir consommé des tokens.
-Une valeur inconnue est NULL, pas zéro.
-
-L’endpoint du journal LLM :
-- est réservé au tenant_admin ;
-- filtre les lignes par tenant ;
-- exclut input_context et output_text ;
-- refuse un tenant différent ;
-- limite la taille de l’extrait à 100 lignes.
-
-## Supervision et alertes
-
-Alloy collecte les logs backend, Nginx, SSH et fail2ban.
-Loki conserve les logs et Grafana fournit la console SOC centrale.
-
-Les tests ont vérifié :
-- corrélation Nginx/backend via le même Trace ID ;
-- augmentation des compteurs après requêtes sans token ;
-- alerte après refus d’authentification répétés ;
-- retour à Normal lorsque les événements quittent la fenêtre ;
-- alerte de logs absents après arrêt d’Alloy ;
-- retour à Normal après reprise de collecte ;
-- connexion SSH par clé visible ;
-- Ban et Unban fail2ban visibles.
-
-Les alertes sont visibles dans Grafana.
-Aucun canal externe de notification n’est configuré.
-
-Une absence de résultat dans un panneau ne prouve pas la disponibilité
-de la chaîne de collecte. Une absence de healthchecks ne localise pas
-à elle seule le composant en panne.
-
-## Protection SSH et fail2ban
-
-Configuration SSH effective vérifiée :
-- PubkeyAuthentication yes ;
-- PasswordAuthentication no ;
-- KbdInteractiveAuthentication no ;
-- PermitRootLogin no.
-
-Une nouvelle connexion par clé a réussi après reload.
-Une tentative de connexion par password a été refusée.
-
-Fail2ban utilise le journal systemd :
-- maxretry : 5 ;
-- findtime : 10 minutes ;
-- bantime : 10 minutes.
-
-L’IP d’administration du Mac, 192.168.64.1, est exclue du bannissement.
-La configuration doit être adaptée si cette adresse change.
-
-Le test de 192.0.2.123 a vérifié :
-- présence dans Banned IP list ;
-- règle REJECT dans f2b-sshd ;
-- connexion de cette chaîne à INPUT pour le port 22 ;
-- suppression du bannissement après Unban ;
-- visibilité des deux événements dans Grafana.
-
-Ce test manuel ne valide pas le déclenchement automatique après
-cinq échecs SSH réels.
-
-## Conservation et exposition
-
-Les ports applicatifs publiés sont limités à localhost.
-PostgreSQL ne possède pas de port publié sur l’hôte.
-SSH écoute sur le réseau.
-
-Le transport Mac–VM utilise SSH.
-HTTPS avec certificat sur Nginx n’est pas configuré.
-
-Conservation :
-- Loki : rétention configurée à 72 heures, suppression asynchrone ;
-- Docker : max-size 10m et max-file 3, appliqués aux six containers ;
-- auth.log et fail2ban.log : rotation hebdomadaire avec quatre archives ;
-- PostgreSQL : pas de purge automatique des journaux implémentée.
-
-Les limites Docker ont été vérifiées par inspect.
-La rotation effective à 10 MB n’a pas été forcée pendant les tests.
-
-## Sauvegarde vérifiée hors livraison Git
-
-Un backup PostgreSQL a été restauré dans une base de test indépendante
-sur le même serveur.
-
-Les vérifications ont porté sur :
-- nombre de lignes par table ;
-- activation et FORCE RLS ;
-- policies RLS ;
-- propriétaires et SECURITY DEFINER des fonctions ;
-- absence de mesures sans contexte tenant ;
-- isolation A/B ;
-- interdiction de modification et suppression de l’audit par le rôle app.
-
-La base de test a ensuite été supprimée et l’archive copiée sur le Mac.
-Le script reste local selon le choix de livraison.
-
-Le dump ne sauvegarde pas les rôles globaux ni les secrets de .env.
-L’égalité de chaque valeur de chaque ligne et la restauration sur
-une nouvelle VM n’ont pas été validées de bout en bout.
-
-## Incident de duplication de logs observé
-
-Un ancien événement Accepted publickey était présent deux fois dans
-auth.log, pour un événement dans le journal systemd.
-
-La configuration inspectée n’a révélé ni double inclusion des règles
-ni double processus rsyslog.
-Un nouveau test contrôlé a produit une seule ligne, également observée
-dans Grafana. La duplication historique n’a pas été reproduite.
-
-La cause reste inconnue et aucun changement rsyslog spéculatif
-n’a été appliqué.
-
-## Éléments non implémentés
-
-- Six intentions entièrement fonctionnelles.
-- Knowledge base BWS et RAG documentaire.
-- Causes racines avec validation d’hypothèses.
-- Scores de confiance calibrés en pourcentage.
-- Plans avec responsables, dates, ROI et payback.
-- Upload intelligent.
-- Facturation et simulateur commercial.
-- Agents distribués avec mTLS.
-- Chiffrement applicatif AES-256 et LUKS démontré.
-- TLS 1.3 configuré de bout en bout.
-- Gestion complète des droits d’accès et d’effacement.
-- Conformité ou certification GDPR/IEC 62443.
-
-Ces éléments restent des limites ou perspectives.
+Ces points doivent être présentés comme perspectives, pas comme contrôles livrés.

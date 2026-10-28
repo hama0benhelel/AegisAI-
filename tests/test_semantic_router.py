@@ -43,7 +43,7 @@ class SemanticRouterTests(unittest.TestCase):
         context = reserve.call_args.args[2]
         self.assertEqual(context["intent"], "intent_routing")
         self.assertNotIn(self.message, json.dumps(context))
-        self.assertEqual(reserve.call_args.kwargs["prompt_version"], "semantic-intent-v1")
+        self.assertEqual(reserve.call_args.kwargs["prompt_version"], "semantic-intent-advice-v3")
         self.assertEqual(finish.call_args.args[2], "success")
 
     def test_same_request_is_interpreted_once(self):
