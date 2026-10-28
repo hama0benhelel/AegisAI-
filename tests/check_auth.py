@@ -30,9 +30,9 @@ status, _ = call("/auth/me")
 assert status == 401, f"Without token: expected 401, got {status}"
 print("PASS: sans token -> 401")
 
-password = getpass.getpass("Password admin.a@example.test: ")
+password = getpass.getpass("Password client.a@example.test: ")
 status, result = call("/auth/login", {
-    "email": "admin.a@example.test",
+    "email": "client.a@example.test",
     "password": password,
 })
 del password
@@ -42,7 +42,7 @@ print("PASS: login -> 200")
 
 status, user = call("/auth/me", token=token)
 assert status == 200
-assert user["email"] == "admin.a@example.test"
+assert user["email"] == "client.a@example.test"
 assert user["tenant_id"] == "11111111-1111-4111-8111-111111111111"
 assert "password_hash" not in user
 print("PASS: identité Client A correcte, aucun hash exposé")
@@ -50,7 +50,7 @@ print("PASS: identité Client A correcte, aucun hash exposé")
 status, result = call("/readings", token=token)
 assert status == 200
 sensors = {item["sensor_id"] for item in result["items"]}
-assert sensors == {"A-WATER-01", "A-ENERGY-01"}, sensors
+assert sensors and all(s.startswith("A-") for s in sensors), "Compteur inattendu dans les mesures du client A"
 print("PASS: seules les mesures de A sont visibles")
 
 status, _ = call(

@@ -120,6 +120,19 @@ verify(reply.get("dialogue_act") == "greeting", "salutation reconnue")
 reply = check("sélection eau par question",
               call(path, a, {"message": "Quelle est ma consommation d’eau ?"}))
 verify(
+    reply.get("needs_clarification") is True
+    and not reply.get("sources")
+    and not reply.get("confirmation"),
+    "plusieurs compteurs eau : clarification sans résultat arbitraire",
+)
+
+reply = check("sélection explicite du compteur eau A", call(path, a, {
+    "message": "Affiche la consommation",
+    "resource": "water",
+    "sensor_id": "A-WATER-01",
+}))
+
+verify(
     bool(reply["sources"])
     and all(s["sensor_id"] == "A-WATER-01" for s in reply["sources"]),
     "contexte initial sur le compteur eau A",
@@ -180,7 +193,11 @@ verify(
 )
 
 reply = check("changement vers énergie",
-              call(path, a, {"message": "Et pour l’énergie ?"}))
+              call(path, a, {
+                  "message": "Et pour l’énergie ?",
+                  "resource": "energy",
+                  "sensor_id": "A-ENERGY-01",
+              }))
 verify(
     bool(reply["sources"])
     and all(s["sensor_id"] == "A-ENERGY-01" for s in reply["sources"]),

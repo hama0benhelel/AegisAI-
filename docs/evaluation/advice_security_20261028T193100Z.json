@@ -1,0 +1,140 @@
+{
+  "test": "advice-security-v1",
+  "result": "passed",
+  "business_counts_before": {
+    "analyses": 45,
+    "chat_confirmations": 23,
+    "proposals": 27,
+    "tasks": 12,
+    "llm_calls": 54
+  },
+  "business_counts_after": {
+    "analyses": 45,
+    "chat_confirmations": 23,
+    "proposals": 27,
+    "tasks": 12,
+    "llm_calls": 54
+  },
+  "cases": [
+    {
+      "case": "login a",
+      "status": 200,
+      "trace_id": "35f81282-b5e4-4d57-815a-6fd9225dfb10"
+    },
+    {
+      "case": "identit\u00e9 a",
+      "status": 200,
+      "trace_id": "f55361a9-ee5a-49bc-bd8d-75933cb7176d"
+    },
+    {
+      "case": "conversation a",
+      "status": 201,
+      "trace_id": "5ee7f3e0-60c4-42c8-809e-5da112d77f2d"
+    },
+    {
+      "case": "login b",
+      "status": 200,
+      "trace_id": "bcf263e5-4172-435e-b1a3-aacdb0eb562b"
+    },
+    {
+      "case": "identit\u00e9 b",
+      "status": 200,
+      "trace_id": "1c6e2fc5-9fff-42d3-99a5-02c68b2ddabe"
+    },
+    {
+      "case": "conversation b",
+      "status": 201,
+      "trace_id": "a20e7558-6052-4308-83ec-09d54f4c0268"
+    },
+    {
+      "case": "conseils sans authentification",
+      "status": 401,
+      "trace_id": "48aa0d8b-b0a7-4437-87fb-e87629af5d62"
+    },
+    {
+      "case": "conseils gas client a",
+      "status": 200,
+      "trace_id": "4081ad53-1b14-44e6-bf48-5cab66ff9bce"
+    },
+    {
+      "case": "conseils water client a",
+      "status": 200,
+      "trace_id": "09ba0e0b-85c5-413c-bc23-d980cd6f1da9"
+    },
+    {
+      "case": "conseils energy client a",
+      "status": 200,
+      "trace_id": "6db46b11-3346-4128-bf8b-2031e0372da3"
+    },
+    {
+      "case": "conseils gas client b",
+      "status": 200,
+      "trace_id": "2a4831fe-bdca-49be-a1d8-9657ed82e0fd"
+    },
+    {
+      "case": "conseils water client b",
+      "status": 200,
+      "trace_id": "fb16c070-e087-4c02-aaa3-c70b86b55ccd"
+    },
+    {
+      "case": "conseils energy client b",
+      "status": 200,
+      "trace_id": "d078b5f2-b067-45f3-aee1-1b746d407d16"
+    },
+    {
+      "case": "demande avec fautes",
+      "status": 200,
+      "trace_id": "33aa05e9-5251-4db7-895d-e7d433a01a1f"
+    },
+    {
+      "case": "B interdit sur conversation A",
+      "status": 404,
+      "trace_id": "697ae737-9689-4705-a5f5-377eceb94d4f"
+    },
+    {
+      "case": "B demande le compteur A",
+      "status": 404,
+      "trace_id": "e11acfe1-e179-4f45-a1e8-94d9e4ed4f48"
+    },
+    {
+      "case": "champ forg\u00e9 tenant_id",
+      "status": 422,
+      "trace_id": "16eb22b3-55c1-4f82-ad52-7039bbaf44db"
+    },
+    {
+      "case": "champ forg\u00e9 knowledge_document",
+      "status": 422,
+      "trace_id": "db3e935a-18a0-4393-b1e6-408f90b3a563"
+    },
+    {
+      "case": "champ forg\u00e9 tool_call",
+      "status": 422,
+      "trace_id": "bbfcf807-7379-4723-9bdb-377feeaabcd5"
+    },
+    {
+      "case": "instruction hostile",
+      "status": 400,
+      "trace_id": "97c6a7fc-ade2-42b5-aae1-4ce6cce9b5e1"
+    },
+    {
+      "case": "instruction hostile",
+      "status": 400,
+      "trace_id": "5ade3165-4453-467b-86fd-e1afffa5a676"
+    },
+    {
+      "case": "instruction hostile",
+      "status": 400,
+      "trace_id": "39d185ed-81ec-40f1-94ba-8accf56e8668"
+    },
+    {
+      "case": "instruction hostile",
+      "status": 400,
+      "trace_id": "57ce41ca-9a2c-470f-bcd0-f50f1d685b0d"
+    },
+    {
+      "case": "oui ne confirme rien",
+      "status": 200,
+      "trace_id": "a30b35ff-fc63-4cc1-9130-43682acd3918"
+    }
+  ]
+}
