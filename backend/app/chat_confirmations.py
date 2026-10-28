@@ -1,3 +1,4 @@
+from app.gas_client import analyze_gas
 from app.energy_client import analyze_energy
 from app.water_client import analyze_water
 from typing import Literal
@@ -47,11 +48,10 @@ def prepare_analysis(resource, sensor_id, request, user):
 
         # Freeze the result and its sources. No analysis is inserted here.
         ordered_rows = list(reversed(rows))
-        snapshot = (
-            analyze_water(ordered_rows, user, request)
-            if resource == "water"
-            else analyze_energy(ordered_rows, user, request)
-        )
+        analyzers = {"water": analyze_water, "energy": analyze_energy, "gas": analyze_gas}
+        if resource not in analyzers:
+            raise HTTPException(422, "Ressource non prise en charge")
+        snapshot = analyzers[resource](ordered_rows, user, request)
 
         pending = conn.execute(
             """

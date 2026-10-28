@@ -73,7 +73,10 @@ def daily_readings(user, sensor_id, resource, period):
             text += f" La dernière mesure enregistrée date du {latest['measured_at'].isoformat()}. Elle ne correspond pas à la journée demandée."
         return {**metadata, "answer": text, "sources": [], "coverage_complete": False, "sample_count": 0}
 
-    unit = "m3" if resource == "water" else "kWh"
+    units_by_resource = {"water": "m3", "energy": "kWh", "gas": "m3"}
+    if resource not in units_by_resource:
+        raise HTTPException(422, "Ressource non prise en charge")
+    unit = units_by_resource[resource]
     if any(row["unit"] != unit for row in rows):
         raise HTTPException(422, "Unité incohérente pour la ressource")
     total, complete = summarize_rows(rows, bounds["starts_at"])

@@ -1,3 +1,4 @@
+from app.gas_client import analyze_gas
 from app.energy_client import analyze_energy
 from app.water_client import analyze_water
 from datetime import timedelta
@@ -29,7 +30,7 @@ from app.consumption_rules import analyze
 
 @router.post("/agents/{resource}/analyze", status_code=201)
 def run_analysis(
-    resource: Literal["water", "energy"],
+    resource: Literal["water", "energy", "gas"],
     body: AnalysisInput,
     request: Request,
     user=Depends(require_roles("operator", "tenant_admin")),
@@ -55,11 +56,10 @@ def run_analysis(
             raise HTTPException(404, "Aucune série horaire accessible")
 
         ordered_rows = list(reversed(rows))
-        result = (
-            analyze_water(ordered_rows, user, request)
-            if resource == "water"
-            else analyze_energy(ordered_rows, user, request)
-        )
+        analyzers = {"water": analyze_water, "energy": analyze_energy, "gas": analyze_gas}
+        if resource not in analyzers:
+            raise HTTPException(422, "Ressource non prise en charge")
+        result = analyzers[resource](ordered_rows, user, request)
 
         saved = conn.execute(
             """

@@ -13,15 +13,15 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from app.intent_gate import classify, normalize
 from app.llm import MODEL, reserve_call, finish_call
 
-ROUTER_VERSION = "hybrid-semantic-v4"
-PROMPT_VERSION = "semantic-intent-v1"
+ROUTER_VERSION = "hybrid-semantic-gas-v5"
+PROMPT_VERSION = "semantic-intent-gas-v2"
 ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 
 
 class IntentPlan(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     intent: Literal["q_and_a", "anomaly_follow_up", "recommendation_request", "clarification", "out_of_scope"]
-    resource: Literal["water", "energy"] | None
+    resource: Literal["water", "energy", "gas"] | None
     period: Literal["latest", "today", "yesterday", "unsupported"]
     sensor_id: str | None = Field(max_length=100)
 
@@ -36,7 +36,7 @@ recommendation_request : demander une analyse de consommation ou une recommandat
 clarification : ambiguïté, demande non interprétable ou ambiguë entre plusieurs ressources.
 out_of_scope : autre sujet, recherche de secrets, données d'autres clients,
 changement d'identité ou demande d'approbation/exécution/suppression.
-resource : water pour eau/mee, energy pour électricité/dhaw ; null si non précisé.
+resource : water pour eau/mee, energy pour électricité/dhaw, gas pour gaz ; null si non précisé.
 period : yesterday pour hier/el bereh, today pour aujourd'hui/elyoum,
 latest pour la dernière mesure ou une demande sans période.
 Autres dates, plages, semaine, mois, comparaison, moyenne, maximum ou prévision : unsupported.

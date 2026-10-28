@@ -66,7 +66,7 @@ with connect() as conn:
         SELECT sensor_id, count(*), min(measured_at), max(measured_at)
         FROM bws_ai.readings GROUP BY sensor_id ORDER BY sensor_id
     """).fetchall()
-    if len(summary) != 4 or any(row[1] < 48 for row in summary):
+    if len(summary) != 6 or any(row[1] < 48 for row in summary):
         raise SystemExit("FAIL : historique initial incomplet")
     for sensor, count, first, last in summary:
         print(f"PASS : {sensor} : {count} mesures, de {first} à {last}")

@@ -218,9 +218,8 @@ def send_message(
             if payload.get("intent") == "q_and_a" and payload.get("sources"):
                 source = payload["sources"][0]
                 new_sensor = source.get("sensor_id")
-                new_resource = {
-                    "m3": "water", "kWh": "energy"
-                }.get(source.get("unit"))
+                # Water and gas both use m3: use the DB-authorized resource.
+                new_resource = payload.get("resource") or new_resource
 
             pending = payload.get("confirmation")
             if pending:

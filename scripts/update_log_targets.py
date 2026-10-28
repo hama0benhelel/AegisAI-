@@ -13,7 +13,7 @@ compose = [
     "-f", "compose.monitoring.yaml",
     "-f", "compose.agents.yaml",
 ]
-services = ("backend", "frontend", "water-agent", "energy-agent")
+services = ("backend", "frontend", "water-agent", "energy-agent", "gas-agent")
 
 for service in services:
     container_ids = subprocess.run(

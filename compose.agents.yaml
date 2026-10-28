@@ -3,6 +3,7 @@ services:
     environment:
       WATER_AGENT_URL: https://water-agent:8443
       ENERGY_AGENT_URL: https://energy-agent:8443
+      GAS_AGENT_URL: https://gas-agent:8443
       AGENT_CA_FILE: /run/agent-tls/ca.pem
       AGENT_CERT_FILE: /run/agent-tls/cert.pem
       AGENT_KEY_FILE: /run/agent-tls/key.pem
@@ -53,6 +54,35 @@ services:
       TLS_CA_FILE: /run/agent-tls/ca.pem
     volumes:
       - /home/bws/.local/share/aegisai-pki/energy:/run/agent-tls:ro
+    networks:
+      agents_private: {}
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    mem_limit: 192m
+    cpus: 0.5
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
+  gas-agent:
+    image: aegisai-gas-agent:dev
+    build:
+      context: .
+      dockerfile: agents/gas/Dockerfile
+    environment:
+      TLS_CERT_FILE: /run/agent-tls/cert.pem
+      TLS_KEY_FILE: /run/agent-tls/key.pem
+      TLS_CA_FILE: /run/agent-tls/ca.pem
+    volumes:
+      - /home/bws/.local/share/aegisai-pki/gas:/run/agent-tls:ro
     networks:
       agents_private: {}
     read_only: true

@@ -6,7 +6,7 @@ from app.intent_gate_v2 import (
     classify as classify_v2,
 )
 
-GATE_VERSION = "conversational-fr-en-v3"
+GATE_VERSION = "conversational-fr-en-gas-v4"
 
 DIALOGUE = {
     "greeting": [
@@ -26,15 +26,17 @@ DIALOGUE = {
     ],
 }
 
-RESOURCE = r"(?:d'eau|d'energie|electrique|en eau|en energie)"
+RESOURCE = r"(?:d'eau|d'energie|de gaz|electrique|en eau|en energie|en gaz)"
 
 NATURAL = {
     "q_and_a": [
+        r"(?:affiche|afficher|montre|montrer|consulte|consulter) (?:la |les )?(?:consommation|mesures?|releves?|valeurs?) (?:de gaz|en gaz)",
+        r"(?:show|display|read) (?:the )?(?:(?:latest|last|hourly) )?gas (?:readings?|measurements?|consumption)",
         rf"quelle est (?:ma|la) consommation(?:\s+{RESOURCE})?",
         rf"(?:montre[- ]moi|donne[- ]moi) (?:ma|la) consommation(?:\s+{RESOURCE})?",
         r"quelle est la derniere mesure(?: disponible)?",
-        r"(?:et\s+)?pour (?:l'eau|l'energie|water|energy)",
-        r"what is my (?:water|energy) consumption",
+        r"(?:et\s+)?pour (?:l'eau|l'energie|le gaz|water|energy|gas)",
+        r"what is my (?:water|energy|gas) consumption",
     ],
     "anomaly_follow_up": [
         r"aide[- ]moi a comprendre cette analyse",
@@ -42,6 +44,7 @@ NATURAL = {
         r"pourquoi ma consommation est[- ]elle elevee",
     ],
     "recommendation_request": [
+        r"(?:analyze|analyse) (?:the )?gas consumption",
         rf"je voudrais analyser (?:ma|la) consommation(?:\s+{RESOURCE})?",
         rf"analyse (?:ma|la) consommation(?:\s+{RESOURCE})?",
         r"je voudrais une recommandation pour ce compteur",
@@ -62,8 +65,10 @@ def allowed(intent, text, dialogue_act=None):
     water = bool(re.search(r"\b(?:eau|water)\b", text))
     energy = bool(re.search(r"\b(?:energie|energy|electrique)\b", text))
 
-    if water != energy:
-        result["resource_hint"] = "water" if water else "energy"
+    gas = bool(re.search(r"\b(?:gaz|gas)\b", text))
+    matched = [name for name, present in (("water", water), ("energy", energy), ("gas", gas)) if present]
+    if len(matched) == 1:
+        result["resource_hint"] = matched[0]
     return result
 
 

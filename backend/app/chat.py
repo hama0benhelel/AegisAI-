@@ -20,7 +20,7 @@ class ChatInput(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     message: str = Field(min_length=1, max_length=1000)
-    resource: Literal["water", "energy"] | None = None
+    resource: Literal["water", "energy", "gas"] | None = None
     sensor_id: str | None = Field(default=None, min_length=1, max_length=100)
     analysis_id: UUID | None = None
 
@@ -74,7 +74,7 @@ def chat(
         replies = {
             "greeting": (
                 "Bonjour ! Je peux vous aider à consulter vos consommations "
-                "d’eau et d’électricité, comprendre une analyse ou préparer "
+                "d’eau, d’électricité et de gaz, comprendre une analyse ou préparer "
                 "une nouvelle analyse. Que souhaitez-vous consulter ?"
             ),
             "thanks": (
@@ -192,7 +192,10 @@ def chat(
             f"{reading['unit']}, à {reading['measured_at'].isoformat()}. "
             f"Source: {reading['data_source']}."
         )
-        payload = answer(intent, text, sources=[source])
+        payload = answer(
+            intent, text, sources=[source],
+            sensor_id=reading["sensor_id"], resource=reading["resource"],
+        )
         return render_with_llm(request, user, payload)
 
     if intent == "recommendation_request":

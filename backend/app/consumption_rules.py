@@ -10,7 +10,10 @@ def analyze(resource, rows):
     if len(rows) != 24:
         raise HTTPException(422, "24 mesures horaires sont nécessaires")
 
-    expected_unit = "m3" if resource == "water" else "kWh"
+    units_by_resource = {"water": "m3", "energy": "kWh", "gas": "m3"}
+    if resource not in units_by_resource:
+        raise HTTPException(422, "Ressource non prise en charge")
+    expected_unit = units_by_resource[resource]
     if any(row["unit"] != expected_unit for row in rows):
         raise HTTPException(422, "Unités incohérentes")
 

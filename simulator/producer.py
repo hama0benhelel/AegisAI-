@@ -10,6 +10,8 @@ import psycopg
 
 SOURCE = "synthetic_live_v1"
 SENSORS = (
+    ("11111111-1111-4111-8111-111111111111", "A-SIM-GAS-01", "gas", "m3"),
+    ("22222222-2222-4222-8222-222222222222", "B-SIM-GAS-01", "gas", "m3"),
     ("11111111-1111-4111-8111-111111111111", "A-SIM-WATER-01", "water", "m3"),
     ("11111111-1111-4111-8111-111111111111", "A-SIM-ENERGY-01", "energy", "kWh"),
     ("22222222-2222-4222-8222-222222222222", "B-SIM-WATER-01", "water", "m3"),
@@ -37,7 +39,7 @@ def connect():
 
 
 def value_for(sensor_id, resource, measured_at, local_hour):
-    if resource not in {"water", "energy"}:
+    if resource not in {"water", "energy", "gas"}:
         raise ValueError("Unsupported simulation resource")
     if not 0 <= local_hour <= 23:
         raise ValueError("Invalid hour")
@@ -50,6 +52,9 @@ def value_for(sensor_id, resource, measured_at, local_hour):
     if resource == "water":
         value = Decimal("0.012" if quiet else "0.065" if peak else "0.028")
         value += fraction * Decimal("0.008")
+    elif resource == "gas":
+        value = Decimal("0.006" if quiet else "0.080" if peak else "0.020")
+        value += fraction * Decimal("0.006")
     else:
         value = Decimal("0.12" if quiet else "0.95" if peak else "0.45")
         value += fraction * Decimal("0.12")
@@ -59,6 +64,8 @@ def value_for(sensor_id, resource, measured_at, local_hour):
     if sensor_id == "A-SIM-WATER-01" and local_hour == 18:
         value *= 6
     if sensor_id == "A-SIM-ENERGY-01" and local_hour == 19:
+        value *= 5
+    if sensor_id == "A-SIM-GAS-01" and local_hour == 20:
         value *= 5
     return value.quantize(Decimal("0.001"))
 

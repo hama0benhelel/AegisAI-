@@ -9,13 +9,13 @@ class ProducerTests(unittest.TestCase):
     def setUp(self):
         self.stamp = datetime(2026, 10, 26, tzinfo=timezone.utc)
 
-    def test_four_distinct_sensors_and_tenant_mapping(self):
-        self.assertEqual(len(SENSORS), 4)
-        self.assertEqual(len({item[1] for item in SENSORS}), 4)
+    def test_six_distinct_sensors_and_tenant_mapping(self):
+        self.assertEqual(len(SENSORS), 6)
+        self.assertEqual(len({item[1] for item in SENSORS}), 6)
         for tenant, sensor, resource, unit in SENSORS:
             self.assertTrue(tenant.startswith("1111") if sensor.startswith("A-") else tenant.startswith("2222"))
             self.assertIn("-SIM-", sensor)
-            self.assertEqual(unit, "m3" if resource == "water" else "kWh")
+            self.assertEqual(unit, "m3" if resource in {"water", "gas"} else "kWh")
         self.assertEqual(SOURCE, "synthetic_live_v1")
 
     def test_values_are_deterministic_positive_and_finite(self):
@@ -39,7 +39,7 @@ class ProducerTests(unittest.TestCase):
 
     def test_invalid_inputs(self):
         for resource, stamp, hour in (
-            ("gas", self.stamp, 1), ("water", self.stamp, 24),
+            ("fuel", self.stamp, 1), ("water", self.stamp, 24),
             ("water", self.stamp.replace(tzinfo=None), 1),
         ):
             with self.assertRaises(ValueError):
