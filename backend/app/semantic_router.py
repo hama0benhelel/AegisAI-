@@ -13,14 +13,14 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from app.intent_gate import classify, normalize
 from app.llm import MODEL, reserve_call, finish_call
 
-ROUTER_VERSION = "hybrid-semantic-gas-v5"
-PROMPT_VERSION = "semantic-intent-gas-v2"
+ROUTER_VERSION = "hybrid-semantic-advice-v6"
+PROMPT_VERSION = "semantic-intent-advice-v3"
 ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 
 
 class IntentPlan(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
-    intent: Literal["q_and_a", "anomaly_follow_up", "recommendation_request", "clarification", "out_of_scope"]
+    intent: Literal["q_and_a", "anomaly_follow_up", "recommendation_request", "consumption_advice", "clarification", "out_of_scope"]
     resource: Literal["water", "energy", "gas"] | None
     period: Literal["latest", "today", "yesterday", "unsupported"]
     sensor_id: str | None = Field(max_length=100)
@@ -32,7 +32,10 @@ Retourne uniquement les quatre champs du schéma. Aucune réponse, SQL ou comman
 Comprends les fautes de français, l'anglais et les formulations tunisiennes usuelles.
 q_and_a : consulter une consommation ou une mesure.
 anomaly_follow_up : expliquer une analyse déjà enregistrée, sans affirmer de cause.
-recommendation_request : demander une analyse de consommation ou une recommandation.
+recommendation_request : demander explicitement de lancer/préparer une analyse de consommation ou une inspection.
+consumption_advice : demander des conseils ou recommandations pour réduire une consommation,
+y compris « quelle est votre recomondation pour demunier la consomation ».
+Une demande de conseils ne doit pas être interprétée comme une demande d'enregistrement d'analyse.
 clarification : ambiguïté, demande non interprétable ou ambiguë entre plusieurs ressources.
 out_of_scope : autre sujet, recherche de secrets, données d'autres clients,
 changement d'identité ou demande d'approbation/exécution/suppression.
@@ -92,6 +95,8 @@ def plan_to_gate(plan):
         )
         return result
     result = {"decision": "allow", "intent": plan.intent, "reason": None, "period": plan.period}
+    if plan.intent == "consumption_advice":
+        result.update(intent="recommendation_request", request_kind="advice")
     if plan.resource:
         result["resource_hint"] = plan.resource
     if plan.sensor_id:

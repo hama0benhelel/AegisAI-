@@ -8,6 +8,13 @@ const reasonText = {
   intent_not_enabled: "Cette fonctionnalité n’est pas encore disponible.",
 };
 
+const knowledgeUrl = value => {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.hostname === "agirpourlatransition.ademe.fr" && !url.username && !url.password && !url.port ? url.href : null;
+  } catch { return null; }
+};
+
 export default function Chat({ api, session, readings, busy, setBusy, onExpired, launch, onActions }) {
   const [history, setHistory] = useState([]);
   const [message, setMessage] = useState("");
@@ -140,6 +147,7 @@ export default function Chat({ api, session, readings, busy, setBusy, onExpired,
             {item.pending ? <p className="thinking">Traitement de votre demande<span aria-hidden="true">…</span></p> : item.error ? <Message danger>{item.error}</Message> : <>
               <p className="answer-text">{item.data?.answer}</p>
               {item.data?.available_sensors?.length > 0 && <div className="choice-list">{item.data.available_sensors.map(sensor => <button className="secondary" key={`${sensor.resource}-${sensor.sensor_id}`} disabled={busy} onClick={() => { setSelection(sensor); setMessage(item.question); input.current?.focus(); }}><Icon name={resourceInfo(sensor.resource).icon} size={17} />{resourceInfo(sensor.resource).label} · {sensor.sensor_id}<span className={`dataset-tag ${sensorKind(sensor)}`}>{sensorKinds[sensorKind(sensor)].short}</span></button>)}</div>}
+              {item.data?.recommendations?.length > 0 && <section className="advice-panel" aria-label="Conseils pour réduire la consommation"><div className="advice-heading"><Icon name="shield" size={19} /><strong>Conseils généraux · à adapter à vos usages</strong></div><ol className="advice-list">{item.data.recommendations.map(tip => <li key={tip.id}><h3>{tip.title}</h3><p>{tip.text}</p><small>{tip.condition}</small></li>)}</ol><p className="subtle">Ces conseils n’exécutent aucune action et ne constituent pas un diagnostic de votre installation.</p>{item.data.knowledge_sources?.length > 0 && <details className="reply-details"><summary>Sources des conseils ({item.data.knowledge_sources.length})</summary><ul>{item.data.knowledge_sources.map(source => <li key={source.source_id}>{knowledgeUrl(source.url) ? <a href={knowledgeUrl(source.url)} target="_blank" rel="noopener noreferrer">{source.publisher} · {source.title}</a> : <span>{source.publisher} · {source.title}</span>}<small>Référence revue le {source.reviewed_at}</small></li>)}</ul></details>}</section>}
               {pending && <div className="confirmation-card"><div className="confirmation-title"><Icon name="shield" /><strong>Vérifiez avant d’enregistrer</strong></div><p>{resourceInfo(pending.resource).label} · <strong>{pending.sensor_id}</strong></p><div className="confirmation-metrics"><div><span>Dernière valeur</span><strong>{number(pending.preview.latest_value)} {pending.preview.unit}</strong></div><div><span>Seuil de la règle</span><strong>{number(pending.preview.threshold_value)} {pending.preview.unit}</strong></div></div><p>{pending.preview.interpretation}</p><p className="subtle">Données du {date(pending.preview.data_as_of)}. Confirmer enregistre cette analyse ; aucune tâche d’inspection n’est créée.</p>
                 {item.resolution ? <div className="resolution" role="status"><Icon name="check" size={17} />{item.resolution.status === "confirmed" ? "Analyse enregistrée." : "Demande annulée, analyse non enregistrée."}</div> : <><p className="subtle">{deadlinePassed ? "Cette prévisualisation a expiré. Demandez une nouvelle analyse." : `À confirmer avant le ${date(pending.expires_at)}.`}</p><div className="button-row"><button disabled={busy || deadlinePassed} onClick={() => decide(item, "confirm")}><Icon name="check" size={17} /> Confirmer l’enregistrement</button><button className="secondary" disabled={busy || deadlinePassed} onClick={() => decide(item, "cancel")}>Annuler</button></div></>}
                 {item.resolution?.status === "confirmed" && <button className="text-button" disabled={busy} onClick={() => { setSelection({ analysis_id: item.resolution.analysis_id }); setMessage("Explique cette analyse"); input.current?.focus(); }}>Comprendre cette analyse <Icon name="arrow" size={16} /></button>}

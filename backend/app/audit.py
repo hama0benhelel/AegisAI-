@@ -90,11 +90,13 @@ async def audit_middleware(request, call_next):
     }
 
     gate_event = getattr(request.state, "audit_event_type", None)
-    if response.status_code < 500 and gate_event in {
+    if gate_event in {
         "prompt_injection_suspected",
         "intent_gate_rejected",
         "chat_clarification_required",
-    }:
+        "recommendations_presented",
+        "knowledge_integrity_failed",
+    } and (response.status_code < 500 or gate_event == "knowledge_integrity_failed"):
         event["event_type"] = gate_event
 
     try:

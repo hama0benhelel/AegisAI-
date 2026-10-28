@@ -6,7 +6,7 @@ from app.intent_gate_v2 import (
     classify as classify_v2,
 )
 
-GATE_VERSION = "conversational-fr-en-gas-v4"
+GATE_VERSION = "conversational-advice-v5"
 
 DIALOGUE = {
     "greeting": [
@@ -51,6 +51,15 @@ NATURAL = {
         r"peux[- ]tu analyser ma consommation",
     ],
 }
+
+
+ADVICE_PATTERNS = [
+    rf"comment (?:reduire|diminuer|baisser) (?:ma|la) consommation(?:\s+{RESOURCE})?",
+    rf"(?:des |quels |donne[- ]moi des )?conseils pour (?:reduire|diminuer|baisser) (?:ma|la) consommation(?:\s+{RESOURCE})?",
+    rf"quelle est (?:ta|votre) (?:recommandation|recomondation) pour (?:reduire|diminuer|demunier|baisser) (?:ma|la|le) (?:consommation|consomation)(?:\s+{RESOURCE})?",
+    r"je voudrais une recommandation pour ce compteur",
+    r"how (?:can i|to) (?:reduce|lower) (?:my |the )?(?:(?:water|energy|gas) )?consumption",
+]
 
 
 def allowed(intent, text, dialogue_act=None):
@@ -106,6 +115,9 @@ def classify(message):
         return allowed(legacy["intent"], candidate)
     if legacy["reason"] != "out_of_scope_or_unrecognized":
         return legacy
+
+    if any(re.fullmatch(pattern, candidate) for pattern in ADVICE_PATTERNS):
+        return {**allowed("recommendation_request", candidate), "request_kind": "advice"}
 
     for intent, patterns in NATURAL.items():
         if any(re.fullmatch(pattern, candidate) for pattern in patterns):

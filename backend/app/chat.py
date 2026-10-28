@@ -12,6 +12,8 @@ from app.db import connect, set_tenant
 from app.semantic_router import ROUTER_VERSION as GATE_VERSION, resolve_message
 from app.period_readings import daily_readings
 from app.llm import render_with_llm
+from app.recommendations import advice_for
+from app.knowledge_base import KnowledgeIntegrityError
 
 router = APIRouter(tags=["Chatbot"])
 
@@ -84,7 +86,7 @@ def chat(
             "help": (
                 "Je peux consulter la dernière mesure disponible de vos "
                 "compteurs, expliquer une analyse enregistrée et préparer "
-                "une analyse à confirmer. Par exemple : "
+                "une analyse à confirmer, ou donner des conseils généraux sourcés. Par exemple : "
                 "« Quelle est ma consommation d’eau ? ». "
                 "L’enregistrement d’une analyse nécessite votre confirmation."
             ),
@@ -124,7 +126,8 @@ def chat(
         )
         return render_with_llm(request, user, payload)
 
-    if intent == "recommendation_request":
+    is_advice = intent == "recommendation_request" and gate.get("request_kind") == "advice"
+    if intent == "recommendation_request" and not is_advice:
         # Direct Python calls don't execute FastAPI dependencies.
         # Explicit authorization is required before invoking the agent.
         if user["role"] not in {"operator", "tenant_admin", "client"}:
@@ -147,6 +150,22 @@ def chat(
         "sensor_id": selected["sensor_id"],
         "resource": selected["resource"],
     })
+
+    if is_advice:
+        try:
+            result = advice_for(user, body.sensor_id, body.resource)
+        except KnowledgeIntegrityError:
+            request.state.audit_event_type = "knowledge_integrity_failed"
+            raise HTTPException(503, "La base de conseils n’est pas disponible. Aucun conseil n’a été généré.") from None
+        request.state.audit_event_type = "recommendations_presented"
+        text = result.pop("answer")
+        sources = result.pop("sources")
+        # Reviewed prose is rendered locally; no knowledge text reaches the LLM.
+        return {
+            **answer(intent, text, sources=sources, **result),
+            "request_kind": "advice", "mode": "grounded_advice",
+            "llm_status": "not_requested", "llm_reason": "curated_advice",
+        }
 
     if intent == "q_and_a":
         if gate.get("period") in {"today", "yesterday"}:
