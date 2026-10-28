@@ -11,3 +11,25 @@
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;scroll-behavior:auto!important}}
 
 @media(max-width:760px){.chat-welcome h2{font-size:24px;font-weight:500;max-width:290px}.chat-welcome h2 br{display:none}}
+
+/* Resource selection and demo data groups */
+.node-gas{top:25px;left:18px;color:#b65c42;transform:rotate(-7deg)}
+.meter-filters{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.resource-filters{display:flex;align-items:center;gap:5px;flex-wrap:wrap;background:#eaf0eb;padding:5px;border-radius:13px}
+.resource-filters button{background:transparent;color:#647b6b;border:1px solid transparent;padding:9px 13px;min-height:39px;font-size:12px}
+.resource-filters button:hover:not(:disabled){background:#f7faf7}
+.resource-filters button.selected{background:white;border-color:#dbe5dd;color:#087c68;box-shadow:0 2px 5px #24472a08}
+.resource-filters button.selected.gas{color:#a14f38}.resource-filters button.selected.water{color:#147c9f}.resource-filters button.selected.energy{color:#97651b}
+.resource-filters button>span{font-size:10px;min-width:18px;padding:1px 5px;border-radius:5px;background:#dae6dd70}
+.kind-filter{display:grid;gap:5px;font-size:10px;color:#6c8373}.kind-filter select{font-size:11px;min-height:39px;max-width:100%}
+.dataset-tag{display:inline-flex;align-items:center;padding:3px 7px;border:1px solid #dfebe2;border-radius:5px;font-size:9px;font-weight:550;color:#537a61;background:#f4f9f4;white-space:nowrap}
+.dataset-tag.initial{background:#f6f4ef;border-color:#e9e4d8;color:#867751}.dataset-tag.other{background:#f5f6f6;border-color:#e2e6e3;color:#7a8980}
+.meter-card>.dataset-tag{margin-bottom:9px}.meter-card h3{overflow-wrap:anywhere}.dataset-explanation{margin:0;line-height:1.9;font-size:11px}
+.starter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.user-bubble small{display:block;font-size:10px;color:#6c8873;margin-top:7px}
+.selection-help{font-size:10px;line-height:1.6;color:#82958a;margin:0 0 10px}
+.active-chat-context{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border:1px solid #e4ebe5;border-radius:8px;background:#f6faf7;color:#587361;font-size:10px;margin-bottom:9px}
+.active-chat-context.gas{background:#fdf5f0;color:#a15c43;border-color:#f0e1d5}.active-chat-context.water{background:#f1f8fb;color:#397b93}.active-chat-context.energy{background:#fcf8ee;color:#917028}
+.active-chat-context span{min-width:0;overflow-wrap:anywhere}.active-chat-context strong{font-weight:600}
+.choice-list .dataset-tag{font-size:8px}
+@media(max-width:760px){.meter-filters{align-items:stretch;gap:12px}.resource-filters{width:100%;justify-content:space-between;gap:2px}.resource-filters button{font-size:10px;gap:5px;padding:8px 7px}.resource-filters button>svg{width:14px}.resource-filters button>span{font-size:9px;min-width:15px;padding:1px 3px}.kind-filter{width:100%}.kind-filter select{width:100%}.starter-grid{grid-template-columns:1fr}.dataset-explanation{font-size:10px}.selection-help{font-size:9px}.choice-list button{flex-wrap:wrap;justify-content:flex-start;max-width:100%;overflow-wrap:anywhere}}

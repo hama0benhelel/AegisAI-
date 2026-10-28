@@ -27,11 +27,32 @@ export const resources = {
   gas: { label: "Gaz", icon: "flame", color: "#b65c42" },
 };
 export const resourceInfo = value => resources[value] || { label: value, icon: "grid", color: "#087f75" };
-export const number = value => Number.isFinite(Number(value)) ? Number(value).toLocaleString("fr-FR", { maximumFractionDigits: 3 }) : "—";
-export const date = value => value && Number.isFinite(new Date(value).getTime()) ? new Date(value).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "Non disponible";
+export const number = value => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value)) ? Number(value).toLocaleString("fr-FR", { maximumFractionDigits: 3 }) : "—";
+export const date = value => value && Number.isFinite(new Date(value).getTime()) ? new Date(value).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short", timeZone: "Africa/Tunis" }) : "Non disponible";
 export function Empty({ icon = "grid", title, children }) {
   return <div className="empty"><span className="empty-icon"><Icon name={icon} size={26} /></span><h3>{title}</h3><p>{children}</p></div>;
 }
 export function Message({ children, danger = false }) {
   return <div className={`message-banner ${danger ? "danger" : ""}`} role={danger ? "alert" : "status"}>{children}</div>;
+}
+
+// UI grouping follows the demo sensor naming convention; authorization remains server-side.
+export const sensorKinds = {
+  simulation: { label: "Simulation horaire", short: "Simulation", description: "Mesures synthétiques générées à chaque heure terminée." },
+  initial: { label: "Démo initiale", short: "Démo initiale", description: "Jeu de mesures fixe conservé pour les scénarios de test." },
+  other: { label: "Autre compteur", short: "Autre", description: "Compteur présent dans les résultats chargés." },
+};
+export function sensorKind(sensor) {
+  const id = typeof sensor === "string" ? sensor : sensor.sensor_id;
+  if (/^[AB]-SIM-(WATER|ENERGY|GAS)-01$/.test(id)) return "simulation";
+  if (/^[AB]-(WATER|ENERGY)-01$/.test(id)) return "initial";
+  return "other";
+}
+export function SensorOptions({ sensors, valueOf }) {
+  return Object.entries(sensorKinds).map(([kind, info]) => {
+    const items = sensors.filter(sensor => sensorKind(sensor) === kind);
+    return items.length ? <optgroup key={kind} label={info.label}>{items.map(sensor =>
+      <option key={valueOf(sensor)} value={valueOf(sensor)}>{resourceInfo(sensor.resource).label} · {sensor.sensor_id}</option>
+    )}</optgroup> : null;
+  });
 }

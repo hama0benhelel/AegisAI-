@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Icon, Message, number, date, resourceInfo } from "./ui.jsx";
+import { Icon, Message, number, date, resourceInfo, sensorKinds, sensorKind, SensorOptions } from "./ui.jsx";
 
 const reasonText = {
   suspicious_instruction: "Cette demande a été refusée par les contrôles de sécurité.",
@@ -12,6 +12,7 @@ export default function Chat({ api, session, readings, busy, setBusy, onExpired,
   const [history, setHistory] = useState([]);
   const [message, setMessage] = useState("");
   const [selection, setSelection] = useState(null);
+  const [activeContext, setActiveContext] = useState(null);
   const [problem, setProblem] = useState("");
   const [expired, setExpired] = useState(false);
   const [clock, setClock] = useState(Date.now());
@@ -45,7 +46,7 @@ export default function Chat({ api, session, readings, busy, setBusy, onExpired,
     setBusy(true);
     setProblem("");
     setMessage("");
-    setHistory(items => [...items, { id, question: text, pending: true }]);
+    setHistory(items => [...items, { id, question: text, selected, pending: true }]);
     try {
       if (!conversation.current) {
         const created = await api("/chat/conversations", { token: session.token, body: {} });
@@ -59,6 +60,11 @@ export default function Chat({ api, session, readings, busy, setBusy, onExpired,
       }
       const response = await api(`/chat/conversations/${conversation.current}/messages`, { token: session.token, body, withMeta: true });
       update(id, { pending: false, data: response.data, traceId: response.traceId });
+      const data = response.data;
+      const known = data.confirmation || data;
+      if (!data.needs_clarification && known.sensor_id && known.resource) {
+        setActiveContext({ sensor_id: known.sensor_id, resource: known.resource, period: data.period?.kind || "latest" });
+      }
       setSelection(null);
     } catch (error) {
       if (error.status === 401) onExpired();
@@ -95,6 +101,7 @@ export default function Chat({ api, session, readings, busy, setBusy, onExpired,
     conversation.current = null;
     setHistory([]);
     setSelection(null);
+    setActiveContext(null);
     setMessage("");
     setProblem("");
     setExpired(false);
@@ -118,20 +125,21 @@ export default function Chat({ api, session, readings, busy, setBusy, onExpired,
     <div className="assistant-toolbar"><div className="assistant-identity"><span className="assistant-avatar"><Icon name="chat" size={22} /></span><div><strong>Votre assistant AegisAI</strong><p>Consommations & analyses</p></div></div><button type="button" className="secondary compact-button" disabled={busy} onClick={newConversation}><Icon name="plus" size={17} /> Nouvelle conversation</button></div>
     <div className="conversation" role="log" aria-label="Conversation avec l’assistant" aria-live="polite" aria-relevant="additions text">
       {!history.length && <div className="chat-welcome"><span className="chat-welcome-mark"><Icon name="chat" size={34} /></span><span className="eyebrow">UN PEU DE CLARTÉ DANS VOS CONSOMMATIONS</span><h2>Bonjour, comment puis-je <br />vous aider ?</h2><p>Consultez un compteur, préparez une analyse ou demandez une explication.</p><div className="starter-grid">{[
-        ["drop", "Ma consommation d’eau", "Quelle est ma consommation d’eau ?"],
-        ["bolt", "Ma consommation électrique", "Quelle est ma consommation d’énergie ?"],
+        ["drop", "Ma consommation d’eau", "Quelle est ma consommation d’eau ?", "water"],
+        ["bolt", "Ma consommation électrique", "Quelle est ma consommation d’énergie ?", "energy"],
+        ["flame", "Ma consommation de gaz", "Quelle est ma consommation de gaz ?", "gas"],
         ["chat", "Découvrir l’assistant", "Que peux-tu faire ?"],
-      ].map(([icon, title, text]) => <button key={title} className="starter" disabled={busy} onClick={() => { setMessage(text); input.current?.focus(); }}><Icon name={icon} /><span>{title}</span><Icon name="arrow" size={16} /></button>)}</div></div>}
+      ].filter(([, , , resource]) => !resource || sensors.some(sensor => sensor.resource === resource)).map(([icon, title, text]) => <button key={title} className="starter" disabled={busy} onClick={() => { setMessage(text); input.current?.focus(); }}><Icon name={icon} /><span>{title}</span><Icon name="arrow" size={16} /></button>)}</div></div>}
       {history.map(item => {
         const pending = item.data?.confirmation;
         const deadlinePassed = pending && new Date(pending.expires_at).getTime() <= clock;
         return <article className="exchange" key={item.id}>
-          <div className="user-bubble"><span className="sr-only">Vous : </span>{item.question}</div>
+          <div className="user-bubble"><span className="sr-only">Vous : </span>{item.question}{item.selected?.sensor_id && <small>{resourceInfo(item.selected.resource).label} · {item.selected.sensor_id}</small>}</div>
           <div className="assistant-reply"><span className="reply-avatar" aria-hidden="true">A</span><div className="reply-body">
             <span className="reply-name">AegisAI</span>
             {item.pending ? <p className="thinking">Traitement de votre demande<span aria-hidden="true">…</span></p> : item.error ? <Message danger>{item.error}</Message> : <>
               <p className="answer-text">{item.data?.answer}</p>
-              {item.data?.available_sensors?.length > 0 && <div className="choice-list">{item.data.available_sensors.map(sensor => <button className="secondary" key={`${sensor.resource}-${sensor.sensor_id}`} disabled={busy} onClick={() => { setSelection(sensor); setMessage(item.question); input.current?.focus(); }}><Icon name={resourceInfo(sensor.resource).icon} size={17} />{resourceInfo(sensor.resource).label} · {sensor.sensor_id}</button>)}</div>}
+              {item.data?.available_sensors?.length > 0 && <div className="choice-list">{item.data.available_sensors.map(sensor => <button className="secondary" key={`${sensor.resource}-${sensor.sensor_id}`} disabled={busy} onClick={() => { setSelection(sensor); setMessage(item.question); input.current?.focus(); }}><Icon name={resourceInfo(sensor.resource).icon} size={17} />{resourceInfo(sensor.resource).label} · {sensor.sensor_id}<span className={`dataset-tag ${sensorKind(sensor)}`}>{sensorKinds[sensorKind(sensor)].short}</span></button>)}</div>}
               {pending && <div className="confirmation-card"><div className="confirmation-title"><Icon name="shield" /><strong>Vérifiez avant d’enregistrer</strong></div><p>{resourceInfo(pending.resource).label} · <strong>{pending.sensor_id}</strong></p><div className="confirmation-metrics"><div><span>Dernière valeur</span><strong>{number(pending.preview.latest_value)} {pending.preview.unit}</strong></div><div><span>Seuil de la règle</span><strong>{number(pending.preview.threshold_value)} {pending.preview.unit}</strong></div></div><p>{pending.preview.interpretation}</p><p className="subtle">Données du {date(pending.preview.data_as_of)}. Confirmer enregistre cette analyse ; aucune tâche d’inspection n’est créée.</p>
                 {item.resolution ? <div className="resolution" role="status"><Icon name="check" size={17} />{item.resolution.status === "confirmed" ? "Analyse enregistrée." : "Demande annulée, analyse non enregistrée."}</div> : <><p className="subtle">{deadlinePassed ? "Cette prévisualisation a expiré. Demandez une nouvelle analyse." : `À confirmer avant le ${date(pending.expires_at)}.`}</p><div className="button-row"><button disabled={busy || deadlinePassed} onClick={() => decide(item, "confirm")}><Icon name="check" size={17} /> Confirmer l’enregistrement</button><button className="secondary" disabled={busy || deadlinePassed} onClick={() => decide(item, "cancel")}>Annuler</button></div></>}
                 {item.resolution?.status === "confirmed" && <button className="text-button" disabled={busy} onClick={() => { setSelection({ analysis_id: item.resolution.analysis_id }); setMessage("Explique cette analyse"); input.current?.focus(); }}>Comprendre cette analyse <Icon name="arrow" size={16} /></button>}
@@ -149,7 +157,9 @@ export default function Chat({ api, session, readings, busy, setBusy, onExpired,
       <div ref={bottom} />
     </div>
     <div className="composer-area">{problem && <Message danger>{problem}</Message>}{expired && <Message danger>Cette conversation a expiré. Ouvrez une nouvelle conversation pour continuer.</Message>}
-      <div className="composer-context"><label htmlFor="chat-sensor">Compteur</label><select id="chat-sensor" disabled={busy} value={selection?.sensor_id ? JSON.stringify([selection.resource, selection.sensor_id]) : ""} onChange={e => setSelection(sensors.find(sensor => JSON.stringify([sensor.resource, sensor.sensor_id]) === e.target.value) || null)}><option value="">Automatique · selon votre demande</option>{sensors.map(sensor => <option key={`${sensor.resource}-${sensor.sensor_id}`} value={JSON.stringify([sensor.resource, sensor.sensor_id])}>{resourceInfo(sensor.resource).label} · {sensor.sensor_id}</option>)}</select>{selection?.analysis_id && <span className="soft-tag">Analyse sélectionnée</span>}</div>
+      <div className="composer-context"><label htmlFor="chat-sensor">Compteur</label><select id="chat-sensor" disabled={busy} value={selection?.sensor_id ? JSON.stringify([selection.resource, selection.sensor_id]) : ""} onChange={e => setSelection(sensors.find(sensor => JSON.stringify([sensor.resource, sensor.sensor_id]) === e.target.value) || null)}><option value="">Contexte de la conversation</option><SensorOptions sensors={sensors} valueOf={sensor => JSON.stringify([sensor.resource, sensor.sensor_id])} /></select>{selection?.analysis_id && <span className="soft-tag">Analyse sélectionnée</span>}</div>
+      {activeContext && <div className={`active-chat-context ${activeContext.resource}`}><Icon name={resourceInfo(activeContext.resource).icon} size={16} /><span><strong>{resourceInfo(activeContext.resource).label} · {activeContext.sensor_id}</strong>{activeContext.period === "today" ? " · Aujourd’hui" : activeContext.period === "yesterday" ? " · Hier" : " · Dernières mesures"}</span></div>}
+      <p className="selection-help">Le choix s’applique au prochain message. Sans sélection, l’assistant utilise le contexte de cette conversation ou vous demande de préciser.</p>
       <form className="composer" onSubmit={send}><label className="sr-only" htmlFor="chat-message">Votre message</label><textarea id="chat-message" ref={input} rows={2} maxLength={1000} value={message} disabled={busy || expired} placeholder="Posez une question sur vos consommations…" onChange={e => setMessage(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); e.currentTarget.form.requestSubmit(); } }} /><button className="send-button" aria-label="Envoyer le message" disabled={busy || expired || !message.trim()}><Icon name="send" size={21} /></button></form>
       <div className="composer-foot"><span>Les opérations nécessitent votre confirmation manuelle.</span><span>{message.length}/1000</span></div><p className="local-history-note">Affichage conservé pendant cette session. Une nouvelle conversation ne supprime ni les analyses ni les demandes déjà préparées.</p>
     </div>
