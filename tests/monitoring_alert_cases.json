@@ -1,0 +1,18 @@
+{
+  "injection": {
+    "uid": "aegisai-prompt-repeat",
+    "title": "AegisAI — Instructions suspectes répétées",
+    "query": "sum by (tenant_id, user_id) (count_over_time({job=\"aegisai\",service=\"backend\",event_type=\"prompt_injection_suspected\"} | json tenant_id=\"tenant_id\", user_id=\"user_id\" | __error__=\"\" | tenant_id!=\"\" | tenant_id!=\"null\" | user_id!=\"\" | user_id!=\"null\" [5m])) or vector(0)",
+    "window_seconds": 300,
+    "pending_seconds": 30,
+    "threshold": 3
+  },
+  "agent": {
+    "uid": "aegisai-agent-failures",
+    "title": "AegisAI — Échecs d’appel aux agents",
+    "query": "sum by (target_service) (count_over_time({job=\"aegisai\",service=\"backend\",event_type=\"agent_call_failed\"} | json target_service=\"target_service\" | __error__=\"\" | target_service=~\"water-agent|energy-agent|gas-agent\" [2m])) or vector(0)",
+    "window_seconds": 120,
+    "pending_seconds": 0,
+    "threshold": 1
+  }
+}

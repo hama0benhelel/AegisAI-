@@ -1,0 +1,23 @@
+services:
+  simulator:
+    build: ./simulator
+    environment:
+      SIMULATOR_DB_PASSWORD: ${SIMULATOR_DB_PASSWORD:?Missing SIMULATOR_DB_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+    mem_limit: 96m
+    cpus: 0.15
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped

@@ -1,0 +1,400 @@
+{
+  "uid": "aegisai-agent-security",
+  "title": "AegisAI — Agents & Security Signals",
+  "description": "Investigation centrale BWS. Les fenêtres d’alerte sont glissantes ; le retour Normal ne prouve pas à lui seul le rétablissement de la collecte ou d’un agent.",
+  "tags": [
+    "AegisAI",
+    "SOC",
+    "agents"
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "timezone": "Africa/Tunis",
+  "refresh": "30s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Messages marqués suspects — 5 minutes",
+      "description": "Détections reçues dans Loki, sans verdict automatique sur le client.",
+      "datasource": {
+        "type": "loki",
+        "uid": "aegisai-loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "aegisai-loki"
+          },
+          "expr": "sum(count_over_time({job=\"aegisai\",service=\"backend\",event_type=\"prompt_injection_suspected\"}[5m])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          },
+          "noValue": "Pas de résultat"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Échecs d’appel agent — 2 minutes",
+      "description": "Les refus de données 422 ne sont pas comptés comme panne agent.",
+      "datasource": {
+        "type": "loki",
+        "uid": "aegisai-loki"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "aegisai-loki"
+          },
+          "expr": "sum(count_over_time({job=\"aegisai\",service=\"backend\",event_type=\"agent_call_failed\"}[2m])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          },
+          "noValue": "Pas de résultat"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 9,
+      "type": "text",
+      "title": "Interpréter les signaux",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 5
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Seuils de laboratoire** : 3 messages suspects / même compte / 5 min ; 1 appel agent en erreur / 2 min.\n\nUn compteur nul ne prouve pas que la collecte fonctionne. Vérifier aussi les alertes de collecte existantes. Aucun blocage de compte automatique."
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Instructions suspectes par tenant et compte — fenêtres de 5 minutes",
+      "description": "Identités extraites à la requête, pas comme labels indexés dans Alloy. Série sans identité = zéro de repli.",
+      "datasource": {
+        "type": "loki",
+        "uid": "aegisai-loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "aegisai-loki"
+          },
+          "expr": "sum by (tenant_id, user_id) (count_over_time({job=\"aegisai\",service=\"backend\",event_type=\"prompt_injection_suspected\"} | json tenant_id=\"tenant_id\", user_id=\"user_id\" | __error__=\"\" | tenant_id!=\"\" | tenant_id!=\"null\" | user_id!=\"\" | user_id!=\"null\" [5m])) or vector(0)",
+          "queryType": "range",
+          "legendFormat": "{{tenant_id}} · {{user_id}}",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Échecs par agent — fenêtres de 2 minutes",
+      "description": "Une panne sans aucun appel applicatif ne produit pas cet événement.",
+      "datasource": {
+        "type": "loki",
+        "uid": "aegisai-loki"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "aegisai-loki"
+          },
+          "expr": "sum by (target_service) (count_over_time({job=\"aegisai\",service=\"backend\",event_type=\"agent_call_failed\"} | json target_service=\"target_service\" | __error__=\"\" | target_service=~\"water-agent|energy-agent|gas-agent\" [2m])) or vector(0)",
+          "queryType": "range",
+          "legendFormat": "{{target_service}}",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "logs",
+      "title": "Instructions suspectes : identités et traces",
+      "description": "Déplier la ligne et copier tenant_id, user_id et trace_id pour investigation.",
+      "datasource": {
+        "type": "loki",
+        "uid": "aegisai-loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "aegisai-loki"
+          },
+          "expr": "{job=\"aegisai\",service=\"backend\",event_type=\"prompt_injection_suspected\"}",
+          "queryType": "range",
+          "legendFormat": "",
+          "editorMode": "code",
+          "maxLines": 200
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true,
+        "dedupStrategy": "none"
+      }
+    },
+    {
+      "id": 6,
+      "type": "logs",
+      "title": "Échecs agent : service, raison et traces",
+      "description": "La même trace doit retrouver le server_error HTTP dans les événements backend. Aucun détail sensible d’exception n’est journalisé.",
+      "datasource": {
+        "type": "loki",
+        "uid": "aegisai-loki"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 13,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "aegisai-loki"
+          },
+          "expr": "{job=\"aegisai\",service=\"backend\",event_type=\"agent_call_failed\"}",
+          "queryType": "range",
+          "legendFormat": "",
+          "editorMode": "code",
+          "maxLines": 200
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true,
+        "dedupStrategy": "none"
+      }
+    },
+    {
+      "id": 7,
+      "type": "logs",
+      "title": "Analyses terminées dans les agents",
+      "description": "Ces événements prouvent des calculs terminés, pas l’exécution d’une action physique.",
+      "datasource": {
+        "type": "loki",
+        "uid": "aegisai-loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "aegisai-loki"
+          },
+          "expr": "{job=\"aegisai\",service=~\"water-agent|energy-agent|gas-agent\",event_type=\"agent_analysis_completed\"}",
+          "queryType": "range",
+          "legendFormat": "",
+          "editorMode": "code",
+          "maxLines": 200
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true,
+        "dedupStrategy": "none"
+      }
+    },
+    {
+      "id": 8,
+      "type": "logs",
+      "title": "Erreurs HTTP et incidents de connaissance",
+      "description": "Un incident d’intégrité de connaissance ne désigne pas automatiquement le client comme responsable.",
+      "datasource": {
+        "type": "loki",
+        "uid": "aegisai-loki"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 23,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "aegisai-loki"
+          },
+          "expr": "{job=\"aegisai\",service=\"backend\",event_type=~\"server_error|knowledge_integrity_failed\"}",
+          "queryType": "range",
+          "legendFormat": "",
+          "editorMode": "code",
+          "maxLines": 200
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true,
+        "dedupStrategy": "none"
+      }
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+services:
+  loki:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    image: grafana/loki@sha256:c316b7c7589a5eeca843b6926c7446149d18300b79ac8538dc4ae063bc478da2
+    command: ["-config.file=/etc/loki/loki.yaml"]
+    volumes:
+      - ./infra/monitoring/loki.yaml:/etc/loki/loki.yaml:ro
+      - loki_data:/loki
+    ports:
+      - "127.0.0.1:3100:3100"
+    networks: [monitoring, monitoring_ui]
+    mem_limit: 512m
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    restart: unless-stopped
+
+  alloy:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    image: grafana/alloy@sha256:2aa2099af76c0098d4af7a4d6e48f86cb66dc1a000222ad927a1c67c6542d13f
+    user: "0:0"
+    group_add: ["4"]
+    command:
+      - run
+      - --storage.path=/var/lib/alloy
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./infra/monitoring/alloy:/etc/alloy:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - alloy_data:/var/lib/alloy
+      - /var/log:/host/var/log:ro
+    networks: [monitoring]
+    depends_on: [loki]
+    mem_limit: 192m
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    restart: unless-stopped
+
+  grafana:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    image: grafana/grafana@sha256:dbbc38ea21103cefb50396340cd88afec779c7e070b0a7bf5a75b4ce46651d3f
+    environment:
+      GF_SECURITY_ADMIN_USER: soc_admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Missing GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks: [monitoring, monitoring_ui]
+    depends_on: [loki]
+    mem_limit: 320m
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    restart: unless-stopped
+
+networks:
+  monitoring:
+    internal: true
+  monitoring_ui:
+    driver: bridge
+
+volumes:
+  loki_data:
+  alloy_data:
+  grafana_data:

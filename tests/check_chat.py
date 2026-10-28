@@ -79,22 +79,53 @@ check("viewer ne lance pas l'agent",
           **reading_request, "message": "Analyse la consommation",
       }), 403)
 
-analysis = check("operator lance l'agent",
-                 call("/chat", operator, {
-                     **reading_request, "message": "Analyse la consommation",
-                 }), 200)
-assert analysis["classification"] == "high_consumption"
-assert analysis["proposal_created"] is False
-assert len(analysis["sources"]) == 24
+pending = check("operator prépare une analyse",
+                call("/chat", operator, {
+                    **reading_request, "message": "Analyse la consommation",
+                }), 200)
+
+assert pending["needs_confirmation"] is True
+assert pending.get("analysis_id") is None
+assert pending["proposal_created"] is False
+assert pending["llm_used"] is False
+
+confirmation = pending["confirmation"]
+preview = confirmation["preview"]
+
+assert confirmation["status"] == "pending"
+assert confirmation["sensor_id"] == "A-WATER-01"
+assert confirmation["resource"] == "water"
+assert preview["classification"] == "high_consumption"
+assert len(preview["sources"]) == 24
+assert pending["sources"] == preview["sources"]
+print("PASS: prévisualisation avec sources, confirmation requise")
+
+confirmed = check("operator confirme l’enregistrement",
+                  call(
+                      f"/chat/confirmations/{confirmation['id']}/decision",
+                      operator,
+                      {"decision": "confirm"},
+                  ), 200)
+
+assert confirmed["status"] == "confirmed"
+assert confirmed["already_processed"] is False
+assert confirmed["analysis_id"]
+
+saved = check("lecture de l’analyse enregistrée",
+              call(f"/analyses/{confirmed['analysis_id']}", operator), 200)
+assert saved["result"] == preview
+print("PASS: analyse enregistrée identique à la prévisualisation")
 
 follow_up = {
     "message": "Explique cette analyse",
-    "analysis_id": analysis["analysis_id"],
+    "analysis_id": confirmed["analysis_id"],
 }
 explained = check("explication de l'analyse",
                   call("/chat", viewer, follow_up), 200)
-assert explained["sources"] == analysis["sources"]
+assert explained["sources"] == preview["sources"]
 assert explained["latest_value"] == 35
+assert explained["llm_used"] is False
+print("PASS: viewer consulte l’analyse confirmée avec ses sources")
 
 check("analyse d'un autre tenant",
       call("/chat", other, follow_up), 404)

@@ -78,11 +78,11 @@ def sign_test_token(claims):
     return result.stdout.strip()
 
 
-token_a = login("admin.a@example.test")
+token_a = login("client.a@example.test")
 claims = read_test_claims(token_a)
 
 status, _ = call("/auth/login", {
-    "email": "admin.a@example.test",
+    "email": "client.a@example.test",
     "password": secrets.token_urlsafe(32),
 })
 expect("password incorrecte", status, 401)
@@ -124,12 +124,12 @@ missing_exp = sign_test_token(without_exp)
 status, _ = call("/auth/me", token=missing_exp)
 expect("expiration absente", status, 401)
 
-token_b = login("admin.b@example.test")
+token_b = login("client.b@example.test")
 status, result = call("/readings", token=token_b)
 expect("lecture Client B", status, 200)
 
 sensors = {item["sensor_id"] for item in result["items"]}
-if sensors != {"B-WATER-01", "B-ENERGY-01"}:
+if not sensors or not all(s.startswith("B-") for s in sensors):
     raise SystemExit("FAIL: mesures inattendues pour Client B")
 print("PASS: Client B voit uniquement ses mesures")
 

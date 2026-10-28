@@ -1,0 +1,373 @@
+{
+  "uid": "aegisai-security",
+  "title": "AegisAI — Security Overview",
+  "description": "Console SOC centrale, réservée aux administrateurs de supervision. Les compteurs portent sur les logs reçus dans la période sélectionnée. L’absence de résultat ne prouve pas que la collecte fonctionne.",
+  "tags": [
+    "AegisAI",
+    "security",
+    "SOC"
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Échecs d’authentification",
+      "description": "Nombre d’événements backend dans la période sélectionnée. Inclut les tokens absents ou invalides et les logins refusés.",
+      "datasource": {
+        "type": "loki",
+        "uid": "aegisai-loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "aegisai-loki"
+          },
+          "expr": "sum(count_over_time({job=\"aegisai\",service=\"backend\",event_type=~\"login_failure|authentication_rejected\"}[$__range]))",
+          "queryType": "instant",
+          "legendFormat": "",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "Aucun résultat",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Refus d’autorisation",
+      "description": "Événements authorization_denied. Les réponses 404 masquant une ressource d’un autre tenant ne sont pas automatiquement classées dans cette catégorie.",
+      "datasource": {
+        "type": "loki",
+        "uid": "aegisai-loki"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "aegisai-loki"
+          },
+          "expr": "sum(count_over_time({job=\"aegisai\",service=\"backend\",event_type=~\"authorization_denied\"}[$__range]))",
+          "queryType": "instant",
+          "legendFormat": "",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "Aucun résultat",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Instructions suspectes",
+      "description": "Messages marqués suspects par les règles du gate. Ce compteur ne représente pas toutes les attaques possibles.",
+      "datasource": {
+        "type": "loki",
+        "uid": "aegisai-loki"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "aegisai-loki"
+          },
+          "expr": "sum(count_over_time({job=\"aegisai\",service=\"backend\",event_type=~\"prompt_injection_suspected\"}[$__range]))",
+          "queryType": "instant",
+          "legendFormat": "",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "Aucun résultat",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Autres rejets du gate",
+      "description": "Inclut les intentions désactivées et les formulations hors périmètre ou non reconnues, y compris des faux rejets possibles.",
+      "datasource": {
+        "type": "loki",
+        "uid": "aegisai-loki"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "aegisai-loki"
+          },
+          "expr": "sum(count_over_time({job=\"aegisai\",service=\"backend\",event_type=~\"intent_gate_rejected\"}[$__range]))",
+          "queryType": "instant",
+          "legendFormat": "",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "Aucun résultat",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Requêtes API via Nginx — par résultat HTTP",
+      "description": "Nombre de requêtes dans des fenêtres de 5 minutes. Les healthchecks /healthz sont exclus.",
+      "datasource": {
+        "type": "loki",
+        "uid": "aegisai-loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "aegisai-loki"
+          },
+          "expr": "sum by (status_code) (count_over_time({job=\"aegisai\",service=\"frontend\",event_type=\"nginx_access\"} | json | path =~ \"^/api/.*\" | __error__=\"\" [5m]))",
+          "queryType": "range",
+          "legendFormat": "HTTP {{status_code}}",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Événements de sécurité — fenêtres de 5 minutes",
+      "description": "Chaque série compte un type d’événement backend. Les événements métier et HTTP restent distincts.",
+      "datasource": {
+        "type": "loki",
+        "uid": "aegisai-loki"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "aegisai-loki"
+          },
+          "expr": "sum by (event_type) (count_over_time({job=\"aegisai\",service=\"backend\",event_type=~\"login_failure|authentication_rejected|authorization_denied|prompt_injection_suspected|intent_gate_rejected|rate_limited\"}[5m]))",
+          "queryType": "range",
+          "legendFormat": "{{event_type}}",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "logs",
+      "title": "Événements backend récents",
+      "description": "Dépliez une ligne pour consulter son Trace ID. Les identités non vérifiées peuvent rester nulles.",
+      "datasource": {
+        "type": "loki",
+        "uid": "aegisai-loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "aegisai-loki"
+          },
+          "expr": "{job=\"aegisai\",service=\"backend\",event_type=~\".+\"}",
+          "queryType": "range",
+          "legendFormat": "",
+          "editorMode": "code",
+          "maxLines": 200
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true,
+        "dedupStrategy": "none"
+      }
+    }
+  ]
+}

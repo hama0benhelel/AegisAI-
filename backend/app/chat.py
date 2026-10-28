@@ -1,13 +1,19 @@
+from app.chat_context import resolve_sensor
 from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.agents import AnalysisInput, get_analysis, run_analysis
+from app.agents import get_analysis
+from app.chat_confirmations import prepare_analysis
 from app.auth import current_user
 from app.db import connect, set_tenant
-from app.intent_gate import GATE_VERSION, classify
+from app.semantic_router import ROUTER_VERSION as GATE_VERSION, resolve_message
+from app.period_readings import daily_readings
+from app.llm import render_with_llm
+from app.recommendations import advice_for
+from app.knowledge_base import KnowledgeIntegrityError
 
 router = APIRouter(tags=["Chatbot"])
 
@@ -16,7 +22,7 @@ class ChatInput(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     message: str = Field(min_length=1, max_length=1000)
-    resource: Literal["water", "energy"] | None = None
+    resource: Literal["water", "energy", "gas"] | None = None
     sensor_id: str | None = Field(default=None, min_length=1, max_length=100)
     analysis_id: UUID | None = None
 
@@ -44,8 +50,11 @@ def chat(
     request: Request,
     user=Depends(current_user),
 ):
-    gate = classify(body.message)
+    gate = resolve_message(body.message, request, user)
     intent = gate["intent"]
+
+    if gate["decision"] == "clarify":
+        return clarify(request, intent or "q_and_a", gate["clarification"])
 
     if gate["decision"] == "reject":
         request.state.audit_event_type = (
@@ -62,17 +71,48 @@ def chat(
             },
         )
 
+    dialogue_act = gate.get("dialogue_act")
+    if dialogue_act:
+        replies = {
+            "greeting": (
+                "Bonjour ! Je peux vous aider à consulter vos consommations "
+                "d’eau, d’électricité et de gaz, comprendre une analyse ou préparer "
+                "une nouvelle analyse. Que souhaitez-vous consulter ?"
+            ),
+            "thanks": (
+                "Avec plaisir ! Souhaitez-vous consulter une consommation "
+                "ou comprendre une analyse ?"
+            ),
+            "help": (
+                "Je peux consulter la dernière mesure disponible de vos "
+                "compteurs, expliquer une analyse enregistrée et préparer "
+                "une analyse à confirmer, ou donner des conseils généraux sourcés. Par exemple : "
+                "« Quelle est ma consommation d’eau ? ». "
+                "L’enregistrement d’une analyse nécessite votre confirmation."
+            ),
+        }
+        return answer(
+            intent, replies[dialogue_act], dialogue_act=dialogue_act
+        )
+
+    if body.resource and gate.get("resource_hint") and body.resource != gate["resource_hint"]:
+        return clarify(
+            request, intent,
+            "Le compteur sélectionné et la ressource demandée ne correspondent pas. "
+            "Sélectionnez le bon compteur ou repassez en sélection automatique.",
+        )
+
     if intent == "anomaly_follow_up":
         if body.analysis_id is None:
             return clarify(
                 request, intent,
-                "Sélectionnez une analyse existante avec analysis_id.",
+                "Sélectionnez l’analyse enregistrée que vous souhaitez comprendre.",
             )
 
         stored = get_analysis(analysis_id=body.analysis_id, user=user)
         result = stored["result"]
 
-        return answer(
+        payload = answer(
             intent,
             result["interpretation"],
             sources=result["sources"],
@@ -84,20 +124,58 @@ def chat(
             data_as_of=result["data_as_of"],
             limitations=result["limitations"],
         )
+        return render_with_llm(request, user, payload)
 
-    if intent == "recommendation_request":
+    is_advice = intent == "recommendation_request" and gate.get("request_kind") == "advice"
+    if intent == "recommendation_request" and not is_advice:
         # Direct Python calls don't execute FastAPI dependencies.
         # Explicit authorization is required before invoking the agent.
-        if user["role"] not in {"operator", "tenant_admin"}:
+        if user["role"] not in {"operator", "tenant_admin", "client"}:
             raise HTTPException(403, "Permissions insuffisantes")
 
-    if body.sensor_id is None or body.resource is None:
-        return clarify(
+    selected, choices = resolve_sensor(
+        user,
+        sensor_id=body.sensor_id or gate.get("sensor_hint"),
+        resource=body.resource or gate.get("resource_hint"),
+    )
+    if selected is None:
+        payload = clarify(
             request, intent,
-            "Sélectionnez sensor_id et resource (water ou energy).",
+            "Quel compteur souhaitez-vous consulter ? "
+            "Sélectionnez-le parmi vos compteurs disponibles.",
         )
+        return {**payload, "available_sensors": choices}
+
+    body = body.model_copy(update={
+        "sensor_id": selected["sensor_id"],
+        "resource": selected["resource"],
+    })
+
+    if is_advice:
+        try:
+            result = advice_for(user, body.sensor_id, body.resource)
+        except KnowledgeIntegrityError:
+            request.state.audit_event_type = "knowledge_integrity_failed"
+            raise HTTPException(503, "La base de conseils n’est pas disponible. Aucun conseil n’a été généré.") from None
+        request.state.audit_event_type = "recommendations_presented"
+        text = result.pop("answer")
+        sources = result.pop("sources")
+        # Reviewed prose is rendered locally; no knowledge text reaches the LLM.
+        return {
+            **answer(intent, text, sources=sources, **result),
+            "request_kind": "advice", "mode": "grounded_advice",
+            "llm_status": "not_requested", "llm_reason": "curated_advice",
+        }
 
     if intent == "q_and_a":
+        if gate.get("period") in {"today", "yesterday"}:
+            daily = daily_readings(user, body.sensor_id, body.resource, gate["period"])
+            text = daily.pop("answer")
+            sources = daily.pop("sources")
+            payload = answer(intent, text, sources=sources, **daily)
+            # No generation when the requested day contains no measurements.
+            return render_with_llm(request, user, payload) if sources else payload
+
         with connect() as conn:
             set_tenant(conn, user["tenant_id"])
             reading = conn.execute(
@@ -133,26 +211,27 @@ def chat(
             f"{reading['unit']}, à {reading['measured_at'].isoformat()}. "
             f"Source: {reading['data_source']}."
         )
-        return answer(intent, text, sources=[source])
+        payload = answer(
+            intent, text, sources=[source],
+            sensor_id=reading["sensor_id"], resource=reading["resource"],
+        )
+        return render_with_llm(request, user, payload)
 
     if intent == "recommendation_request":
-        created = run_analysis(
+        confirmation = prepare_analysis(
             resource=body.resource,
-            body=AnalysisInput(sensor_id=body.sensor_id),
+            sensor_id=body.sensor_id,
             request=request,
             user=user,
         )
-        result = created["result"]
-
         return answer(
             intent,
-            result["interpretation"],
-            sources=result["sources"],
-            analysis_id=str(created["id"]),
-            classification=result["classification"],
-            suggested_proposal=result["suggested_proposal"],
+            "Vérifiez la prévisualisation, puis confirmez ou annulez "
+            "l’enregistrement de cette analyse.",
+            sources=confirmation["preview"]["sources"],
+            needs_confirmation=True,
+            confirmation=confirmation,
             proposal_created=False,
-            limitations=result["limitations"],
         )
 
     raise HTTPException(400, "Intent non pris en charge")

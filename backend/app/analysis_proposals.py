@@ -15,7 +15,7 @@ def proposal_from_analysis(
     analysis_id: UUID,
     request: Request,
     response: Response,
-    user=Depends(require_roles("operator", "tenant_admin")),
+    user=Depends(require_roles("operator", "tenant_admin", "client")),
 ):
     with connect() as conn:
         set_tenant(conn, user["tenant_id"])

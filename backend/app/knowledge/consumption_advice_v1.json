@@ -1,0 +1,71 @@
+{
+  "version": "curated-consumption-advice-v1",
+  "reviewed_at": "2026-10-28",
+  "sources": {
+    "ademe-water": {
+      "title": "Nos conseils pour économiser l'eau à la maison",
+      "publisher": "ADEME",
+      "url": "https://agirpourlatransition.ademe.fr/particuliers/economiser/eau/conseils-economie-eau-maison"
+    },
+    "ademe-energy": {
+      "title": "20 solutions pour réduire sa consommation d’électricité",
+      "publisher": "ADEME",
+      "url": "https://agirpourlatransition.ademe.fr/particuliers/economiser/energie/20-solutions-reduire-consommation-electricite"
+    },
+    "ademe-heating": {
+      "title": "Les bons gestes pour un chauffage plus économique",
+      "publisher": "ADEME",
+      "url": "https://agirpourlatransition.ademe.fr/particuliers/amenager-maison/chauffer/bons-gestes-chauffage-plus-economique"
+    }
+  },
+  "tips": [
+    {
+      "id": "water-shower",
+      "resource": "water",
+      "title": "Réduire l’eau utilisée sous la douche",
+      "condition": "Si ce compteur alimente vos usages domestiques.",
+      "text": "Privilégiez des douches plus courtes et fermez l’eau pendant le savonnage.",
+      "source_id": "ademe-water"
+    },
+    {
+      "id": "water-dishes",
+      "resource": "water",
+      "title": "Éviter l’écoulement continu",
+      "condition": "Si vous lavez votre vaisselle à la main.",
+      "text": "Utilisez des bacs pour laver puis rincer plutôt que de laisser le robinet couler en continu.",
+      "source_id": "ademe-water"
+    },
+    {
+      "id": "energy-lighting",
+      "resource": "energy",
+      "title": "Éteindre l’éclairage inutile",
+      "condition": "Pour les pièces et éclairages concernés par ce compteur.",
+      "text": "Éteignez les lumières lorsque vous quittez une pièce.",
+      "source_id": "ademe-energy"
+    },
+    {
+      "id": "energy-eco",
+      "resource": "energy",
+      "title": "Choisir un programme économe",
+      "condition": "Si vous possédez un lave-linge ou un lave-vaisselle compatible.",
+      "text": "Privilégiez le programme Éco adapté à votre appareil en suivant sa notice, même si le cycle dure plus longtemps.",
+      "source_id": "ademe-energy"
+    },
+    {
+      "id": "gas-hot-water",
+      "resource": "gas",
+      "title": "Limiter les besoins en eau chaude",
+      "condition": "Uniquement si votre eau chaude est produite au gaz.",
+      "text": "Réduire le temps sous la douche limite la quantité d’eau chaude à produire.",
+      "source_id": "ademe-energy"
+    },
+    {
+      "id": "gas-heating",
+      "resource": "gas",
+      "title": "Conserver la chaleur du logement",
+      "condition": "Uniquement si votre logement est chauffé au gaz.",
+      "text": "Fermez les volets et rideaux le soir, sans couvrir les radiateurs ni obstruer la ventilation.",
+      "source_id": "ademe-heating"
+    }
+  ]
+}

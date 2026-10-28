@@ -1,0 +1,55 @@
+{
+  "passed": true,
+  "cases": [
+    {
+      "case": "sans authentification",
+      "status": 401,
+      "trace_id": "78fa9abb-2e5e-4b52-b902-ffa163ff98d3",
+      "llm_reservations": 0
+    },
+    {
+      "case": "instruction suspecte",
+      "status": 400,
+      "trace_id": "08f0ffee-fbd8-4a20-8080-97e7528a5b70",
+      "llm_reservations": 0
+    },
+    {
+      "case": "écriture interdite via chat",
+      "status": 400,
+      "trace_id": "b1286b50-c571-4e0b-8738-5297541d1893",
+      "llm_reservations": 0
+    },
+    {
+      "case": "tenant forgé",
+      "status": 422,
+      "trace_id": "0d973bbb-07bb-4b5e-9164-b82cfb5543b7",
+      "llm_reservations": 0
+    },
+    {
+      "case": "outil forgé",
+      "status": 422,
+      "trace_id": "98f7ccf0-d86d-4612-bd8f-40487811c679",
+      "llm_reservations": 0
+    },
+    {
+      "case": "compteur A demandé par B",
+      "status": 404,
+      "trace_id": "21103075-34a2-4011-ac31-b4ccef901092",
+      "llm_reservations": 0
+    },
+    {
+      "case": "message trop long",
+      "status": 422,
+      "trace_id": "02c3e467-4031-48b0-8752-212df5f1990c",
+      "llm_reservations": 0
+    },
+    {
+      "case": "lecture autorisée",
+      "status": 200,
+      "trace_id": "93ce11d7-4196-40fa-8c3e-8ce3a1c742c1",
+      "llm_reservations": 1
+    }
+  ],
+  "generation_status": "success",
+  "limitation": "Aucun test universel de prompt injection ; les messages inconnus peuvent atteindre le routeur."
+}

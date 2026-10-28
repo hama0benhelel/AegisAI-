@@ -67,7 +67,7 @@ def locked_proposal(conn, proposal_id, tenant_id):
 def create_proposal(
     body: ProposalInput,
     request: Request,
-    user=Depends(require_roles("operator", "tenant_admin")),
+    user=Depends(require_roles("operator", "tenant_admin", "client")),
 ):
     with connect() as conn:
         set_tenant(conn, user["tenant_id"])
@@ -140,11 +140,14 @@ def decide(
     proposal_id: UUID,
     body: DecisionInput,
     request: Request,
-    user=Depends(require_roles("tenant_admin")),
+    user=Depends(require_roles("tenant_admin", "client")),
 ):
     with connect() as conn:
         set_tenant(conn, user["tenant_id"])
         proposal = locked_proposal(conn, proposal_id, user["tenant_id"])
+
+        if user["role"] == "client" and proposal["created_by"] != user["id"]:
+            raise HTTPException(404, "Proposition introuvable")
 
         if proposal["status"] != "pending":
             raise HTTPException(409, "La proposition a déjà été décidée")
@@ -170,11 +173,14 @@ def decide(
 def execute(
     proposal_id: UUID,
     request: Request,
-    user=Depends(require_roles("operator", "tenant_admin")),
+    user=Depends(require_roles("operator", "tenant_admin", "client")),
 ):
     with connect() as conn:
         set_tenant(conn, user["tenant_id"])
         proposal = locked_proposal(conn, proposal_id, user["tenant_id"])
+
+        if user["role"] == "client" and proposal["created_by"] != user["id"]:
+            raise HTTPException(404, "Proposition introuvable")
 
         if proposal["status"] == "executed":
             task = conn.execute(
@@ -190,6 +196,9 @@ def execute(
 
         if proposal["status"] != "approved":
             raise HTTPException(409, "Approbation requise avant exécution")
+
+        if user["role"] == "client" and proposal["decided_by"] != user["id"]:
+            raise HTTPException(409, "Votre confirmation personnelle est requise")
 
         if proposal["action_type"] != "create_inspection_task":
             raise HTTPException(409, "Action non prise en charge")
