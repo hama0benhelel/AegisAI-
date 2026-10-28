@@ -1,3 +1,4 @@
+from app.agent_events import observed_agent_call
 import json
 import math
 import os
@@ -24,11 +25,12 @@ def invalid_response():
     return HTTPException(502, "Réponse invalide de l’agent énergie")
 
 
+@observed_agent_call("energy")
 def analyze_energy(rows, user, request):
     # Endpoint fixed by the application, never supplied by the user.
     base = os.environ.get("ENERGY_AGENT_URL", "")
     if base != "https://energy-agent:8443":
-        raise HTTPException(503, "Agent eau non configuré")
+        raise HTTPException(503, "Agent énergie non configuré")
 
     trace_id = str(UUID(request.state.trace_id))
     tenant_id = str(user["tenant_id"])
@@ -89,7 +91,7 @@ def analyze_energy(rows, user, request):
             raise HTTPException(
                 422, "Série de mesures refusée par l’agent énergie"
             ) from None
-        raise HTTPException(503, "Agent eau indisponible") from None
+        raise HTTPException(503, "Agent énergie indisponible") from None
     except (URLError, OSError, KeyError):
         raise HTTPException(503, "Connexion sécurisée à l’agent énergie indisponible") from None
 

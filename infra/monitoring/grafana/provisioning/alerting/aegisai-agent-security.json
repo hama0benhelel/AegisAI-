@@ -1,0 +1,139 @@
+{
+  "apiVersion": 1,
+  "groups": [
+    {
+      "orgId": 1,
+      "name": "aegisai-agent-security",
+      "folder": "AegisAI SOC",
+      "interval": "30s",
+      "rules": [
+        {
+          "uid": "aegisai-prompt-repeat",
+          "title": "AegisAI — Instructions suspectes répétées",
+          "condition": "B",
+          "for": "30s",
+          "noDataState": "NoData",
+          "execErrState": "Error",
+          "isPaused": false,
+          "labels": {
+            "project": "aegisai",
+            "severity": "warning",
+            "category": "security"
+          },
+          "annotations": {
+            "summary": "AegisAI — Instructions suspectes répétées",
+            "description": "Au moins 3 messages marqués suspects en 5 minutes pour le même tenant et utilisateur, pendant 30 secondes. Activité à examiner, pas une preuve automatique d’attaque. Retrouver les Trace IDs dans le dashboard.",
+            "__dashboardUid__": "aegisai-agent-security",
+            "__panelId__": "2"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 300,
+                "to": 0
+              },
+              "datasourceUid": "aegisai-loki",
+              "model": {
+                "refId": "A",
+                "datasource": {
+                  "type": "loki",
+                  "uid": "aegisai-loki"
+                },
+                "expr": "sum by (tenant_id, user_id) (count_over_time({job=\"aegisai\",service=\"backend\",event_type=\"prompt_injection_suspected\"} | json tenant_id=\"tenant_id\", user_id=\"user_id\" | __error__=\"\" | tenant_id!=\"\" | tenant_id!=\"null\" | user_id!=\"\" | user_id!=\"null\" [5m])) or vector(0)",
+                "queryType": "instant",
+                "instant": true,
+                "range": false,
+                "editorMode": "code",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                },
+                "type": "math",
+                "expression": "$A >= 3",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            }
+          ]
+        },
+        {
+          "uid": "aegisai-agent-failures",
+          "title": "AegisAI — Échecs d’appel aux agents",
+          "condition": "B",
+          "for": "0s",
+          "noDataState": "NoData",
+          "execErrState": "Error",
+          "isPaused": false,
+          "labels": {
+            "project": "aegisai",
+            "severity": "warning",
+            "category": "availability"
+          },
+          "annotations": {
+            "summary": "AegisAI — Échecs d’appel aux agents",
+            "description": "Au moins un appel 5xx vers cet agent dans les 2 dernières minutes. Vérifier réseau, TLS, service et validation de réponse. Ce signal ne prouve ni une attaque ni une panne permanente.",
+            "__dashboardUid__": "aegisai-agent-security",
+            "__panelId__": "4"
+          },
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 300,
+                "to": 0
+              },
+              "datasourceUid": "aegisai-loki",
+              "model": {
+                "refId": "A",
+                "datasource": {
+                  "type": "loki",
+                  "uid": "aegisai-loki"
+                },
+                "expr": "sum by (target_service) (count_over_time({job=\"aegisai\",service=\"backend\",event_type=\"agent_call_failed\"} | json target_service=\"target_service\" | __error__=\"\" | target_service=~\"water-agent|energy-agent|gas-agent\" [2m])) or vector(0)",
+                "queryType": "instant",
+                "instant": true,
+                "range": false,
+                "editorMode": "code",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                },
+                "type": "math",
+                "expression": "$A >= 1",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

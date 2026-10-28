@@ -1,0 +1,67 @@
+{
+  "scenario": "gas-agent-failure-alert-v1",
+  "started_at": "2026-10-28T18:59:56.575500+00:00",
+  "result": "passed",
+  "transitions": [
+    {
+      "at": "2026-10-28T19:00:17.735743+00:00",
+      "state": "normal",
+      "metric": 0,
+      "labels": {
+        "target_service": "gas-agent"
+      }
+    },
+    {
+      "at": "2026-10-28T19:00:25.783774+00:00",
+      "state": "normal",
+      "metric": 1.0,
+      "labels": {
+        "target_service": "gas-agent"
+      }
+    },
+    {
+      "at": "2026-10-28T19:00:55.878022+00:00",
+      "state": "firing",
+      "metric": 1.0,
+      "labels": {
+        "target_service": "gas-agent"
+      }
+    },
+    {
+      "at": "2026-10-28T19:00:55.894438+00:00",
+      "state": "firing",
+      "metric": 1.0,
+      "labels": {
+        "target_service": "gas-agent"
+      }
+    },
+    {
+      "at": "2026-10-28T19:03:26.493993+00:00",
+      "state": "normal",
+      "metric": 0,
+      "labels": {
+        "target_service": "gas-agent"
+      }
+    }
+  ],
+  "restored": true,
+  "labels": {
+    "target_service": "gas-agent"
+  },
+  "counts_before": {
+    "analyses": 34,
+    "chat_confirmations": 20,
+    "proposals": 25,
+    "tasks": 11,
+    "llm_calls": 40
+  },
+  "trace_id": "2ac36084-5085-4ac2-8581-bcb0f17a5fa0",
+  "counts_after": {
+    "analyses": 34,
+    "chat_confirmations": 20,
+    "proposals": 25,
+    "tasks": 11,
+    "llm_calls": 40
+  },
+  "completed_at": "2026-10-28T19:03:26.494432+00:00"
+}

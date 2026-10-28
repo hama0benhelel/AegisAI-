@@ -1,3 +1,4 @@
+from app.agent_events import observed_agent_call
 import json
 import math
 import os
@@ -24,6 +25,7 @@ def invalid_response():
     return HTTPException(502, "Réponse invalide de l’agent eau")
 
 
+@observed_agent_call("water")
 def analyze_water(rows, user, request):
     # Endpoint fixed by the application, never supplied by the user.
     base = os.environ.get("WATER_AGENT_URL", "")
